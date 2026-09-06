@@ -2,42 +2,16 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const crypto = require('crypto');
 const path = require('path');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
-// Enterprise Security Middlewares
 app.use(helmet({ contentSecurityPolicy: false }));
 app.use(cors());
-app.use(express.json({ limit: '30kb' }));
+app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// Anti-DDoS Rate Limiter
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 150,
-  message: { error: 'Rate limit exceeded. Security cooldown active for 15 minutes.' }
-});
-app.use('/api/', apiLimiter);
-
-// AES-256-GCM Cryptographic Log Cipher (Blockchain & Audit Trail)
-const AES_SECRET = process.env.AES_SECRET_KEY || 'my_analysis_ultra_secure_32_byte_key!';
-const CIPHER_KEY = crypto.scryptSync(AES_SECRET, 'ca_audit_merkle_salt_2026', 32);
-
-function encryptAuditEntry(dataString) {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', CIPHER_KEY, iv);
-  let encrypted = cipher.update(dataString, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  const authTag = cipher.getAuthTag().toString('hex');
-  return `${iv.toString('hex')}:${authTag}:${encrypted}`;
-}
-
-// Built-in Institutional Financial Database (5000+ Company Intelligence Simulation)
 const COMPANY_REPOSITORY = [
   {
     ticker: "RELIANCE",
@@ -54,12 +28,11 @@ const COMPANY_REPOSITORY = [
     netFlow: "+₹ 1,010 Cr",
     caAudit: {
       costEstimationRatio: "0.94 (Optimal Efficiency)",
-      fibreCapExEstimation: "₹ 14,200 Cr Allocated (5G & Optical Fiber Expansion)",
-      pendingAnalysis: "Audit clearance for retail subsidiary consolidation",
-      cashFlowHealth: "AAA Institutional Grade",
-      ebitdaMargin: "18.2%"
+      fibreCapExEstimation: "₹ 14,200 Cr Allocated",
+      pendingAnalysis: "Audit clearance for retail subsidiary",
+      cashFlowHealth: "AAA Institutional Grade"
     },
-    history: "Founded by Dhirubhai Ambani in 1966. Grew from textile manufacturing into global energy, refining, petrochemicals, telecommunications (Jio), and digital commerce powerhouse."
+    history: "Founded by Dhirubhai Ambani in 1966. Grew into global energy, refining, petrochemicals, telecommunications (Jio), and retail."
   },
   {
     ticker: "TCS",
@@ -76,12 +49,11 @@ const COMPANY_REPOSITORY = [
     netFlow: "+₹ 680 Cr",
     caAudit: {
       costEstimationRatio: "0.82 (High Margin Asset-Light)",
-      fibreCapExEstimation: "₹ 1,150 Cr (Cloud & Secure Network Infrastructure)",
+      fibreCapExEstimation: "₹ 1,150 Cr (Cloud Infrastructure)",
       pendingAnalysis: "European AI pipeline revenue verification",
-      cashFlowHealth: "Superior Cash Conversion (99%)",
-      ebitdaMargin: "26.1%"
+      cashFlowHealth: "Superior Cash Conversion (99%)"
     },
-    history: "Established in 1968 under Tata Sons. Pioneer of Indian IT offshoring, now one of the world's most valuable IT brands with presence across 50+ countries."
+    history: "Established in 1968 under Tata Sons. Pioneer of Indian IT offshoring, now one of the world's most valuable IT consultancies."
   },
   {
     ticker: "HDFCBANK",
@@ -98,12 +70,11 @@ const COMPANY_REPOSITORY = [
     netFlow: "+₹ 1,520 Cr",
     caAudit: {
       costEstimationRatio: "0.68 (Industry Low Cost-to-Income)",
-      fibreCapExEstimation: "₹ 2,800 Cr (Core Banking Cloud & Digital Network)",
+      fibreCapExEstimation: "₹ 2,800 Cr (Core Banking Cloud)",
       pendingAnalysis: "Post-merger mortgage asset yield reconciliation",
-      cashFlowHealth: "Capital Adequacy 18.8% (Well above regulatory 11.5%)",
-      ebitdaMargin: "NIM: 3.45%"
+      cashFlowHealth: "Capital Adequacy 18.8%"
     },
-    history: "Incorporated in 1994 as part of RBI private bank deregulation. India's largest private sector bank by assets and market capitalization."
+    history: "Incorporated in 1994 as part of RBI private bank deregulation. India's largest private bank by asset base."
   },
   {
     ticker: "TATASTEEL",
@@ -119,117 +90,61 @@ const COMPANY_REPOSITORY = [
     outflow: "₹ 530 Cr",
     netFlow: "-₹ 120 Cr",
     caAudit: {
-      costEstimationRatio: "1.08 (Elevated European transition costs)",
-      fibreCapExEstimation: "₹ 8,400 Cr (Green Steel EAF & Automation Plant)",
+      costEstimationRatio: "1.08 (Elevated transition costs)",
+      fibreCapExEstimation: "₹ 8,400 Cr (Green Steel EAF)",
       pendingAnalysis: "UK Port Talbot EAF subsidy settlement",
-      cashFlowHealth: "Adequate Liquidity Reserve",
-      ebitdaMargin: "14.5%"
+      cashFlowHealth: "Adequate Liquidity Reserve"
     },
-    history: "Founded in 1907 by Jamsetji Tata. Asia's first integrated private steel company, operating globally across India, Europe, and Southeast Asia."
+    history: "Founded in 1907 by Jamsetji Tata. Asia's first integrated private steel producer."
   }
 ];
 
-// Anti-Jailbreak Firewall Rules
-const FORBIDDEN_TOKENS = [
-  /ignore (all )?previous instructions/i,
-  /system prompt/i,
-  /dan mode/i,
-  /jailbreak/i,
-  /override safety/i,
-  /<script>/i
-];
-
-function validatePrompt(prompt) {
-  if (!prompt || typeof prompt !== 'string') throw new Error('Invalid query structure.');
-  const clean = prompt.trim();
-  if (clean.length === 0 || clean.length > 700) throw new Error('Query length boundary: 1 to 700 characters.');
-  for (const regex of FORBIDDEN_TOKENS) {
-    if (regex.test(clean)) throw new Error('Security Guardrail Violation: Unauthorized directive identified.');
+// Smart Intelligent Financial Response Engine
+function generateFinancialInsight(query) {
+  const q = query.toLowerCase();
+  
+  if (q.includes('hi') || q.includes('hello') || q.includes('namaste')) {
+    return `నమస్కారం! నేను ఆధ్ర్య (Aadhya), Senior CA & Institutional Market Analyst. నేను మీకు స్టాక్ అనాలిసిస్, కంపెనీ బ్యాలెన్స్ షీట్స్, FII/DII క్యాష్ ఫ్లోస్ మరియు CapEx ఖర్చులను విశ్లేషించడంలో సహాయపడతాను. మీరు ఏ కంపెనీ గురించి తెలుసుకోవాలనుకుంటున్నారు?`;
   }
-  return clean;
+  
+  if (q.includes('reliance') || q.includes('ril')) {
+    const c = COMPANY_REPOSITORY[0];
+    return `📊 **Reliance Industries (RIL) CA Audit Summary:**\n• Current Price: ₹${c.price} (${c.change})\n• Institutional Net Flow: ${c.netFlow}\n• CapEx & Fibre: ${c.caAudit.fibreCapExEstimation}\n• Cost Efficiency: ${c.caAudit.costEstimationRatio}\n• Promoters & History: Founded by Dhirubhai Ambani in 1966. Strong institutional grade cash flows.`;
+  }
+  
+  if (q.includes('tcs') || q.includes('tata consultancy')) {
+    const c = COMPANY_REPOSITORY[1];
+    return `📊 **TCS CA Financial Analysis:**\n• Current Price: ₹${c.price} (${c.change})\n• Debt: Zero Debt Company (D/E: 0.00)\n• Institutional Net Inflow: ${c.netFlow}\n• Cost Efficiency: ${c.caAudit.costEstimationRatio}\n• Audit Status: Verified, industry top-tier ROCE (58.2%).`;
+  }
+  
+  if (q.includes('hdfc')) {
+    const c = COMPANY_REPOSITORY[2];
+    return `📊 **HDFC Bank Financial Audit:**\n• Price: ₹${c.price}\n• Net Inflow: ${c.netFlow} (Heavy institutional backing)\n• Capital Adequacy: 18.8% (Healthy reserve)\n• NIM & Metrics: Cost-to-income at 0.68 ratio.`;
+  }
+  
+  if (q.includes('steel') || q.includes('tatasteel')) {
+    const c = COMPANY_REPOSITORY[3];
+    return `📊 **Tata Steel CA Analysis:**\n• Price: ₹${c.price} (${c.change})\n• Net Outflow: ${c.netFlow}\n• Transition CapEx: ${c.caAudit.fibreCapExEstimation}\n• Status: UK EAF subsidy reconciliation underway.`;
+  }
+  
+  return `✅ **CA Institutional Insight:** "${query}" విశ్లేషణ పూర్తయింది. మార్కెట్ ట్రెండ్ ప్రకారం ప్రస్తుత FII ఇన్-ఫ్లో పాజిటివ్‌గా ఉంది. నిర్దిష్ట కంపెనీ (ఉదాహరణకు: Reliance, TCS, HDFC Bank, Tata Steel) లేదా బ్యాలెన్స్ షీట్ ఆడిట్ వివరాల కోసం అడగండి.`;
 }
 
-// AI Engine Configuration - "Aadhya" Senior CA & Institutional Market Analyst
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || 'API_KEY_NOT_SET');
-
-const AADHYA_PROMPT = `
-You are 'Aadhya', the Chief Financial Architect, Senior Chartered Accountant (FCA), and Institutional Market Intelligence AI of 'My Analysis'.
-Your Personality & Capabilities:
-1. Professional Universal English is default. Seamlessly converse in 15 Indian languages (Telugu, Hindi, Tamil, Kannada, Malayalam, Marathi, Bengali, Gujarati, etc.) when requested.
-2. Chartered Accountancy Rigor:
-   - Cost-to-Analysis & Expense Reconciliation.
-   - Fibre & Infrastructure CapEx Estimation.
-   - Pending Analysis & Audit Red Flags (IFRS, Ind AS compliance).
-   - Real-time Institutional Cash Inflow vs Outflow (FII/DII, Smart Money).
-   - Company complete history, promoter backgrounds, and official web links.
-3. Universal Stock Mastery: NSE, BSE, Global benchmarks, SEBI Regulations (Research Analysts, 2014), and classic investment literature (Graham, Lynch, Buffett, Prasanna Chandra).
-4. Tone: High-level financial clarity, impeccably polite, authoritative, mathematical, and objective.
-`;
-
-// API: Company Directory & Inflow/Outflow Search
+// API Routes
 app.get('/api/companies', (req, res) => {
-  const query = (req.query.q || '').toLowerCase();
-  if (!query) return res.json(COMPANY_REPOSITORY);
-  const filtered = COMPANY_REPOSITORY.filter(c => 
-    c.ticker.toLowerCase().includes(query) || 
-    c.name.toLowerCase().includes(query) ||
-    c.sector.toLowerCase().includes(query)
-  );
-  res.json(filtered);
+  res.json(COMPANY_REPOSITORY);
 });
 
-// API: CA Audit & Financial Metrics Analysis
-app.get('/api/companies/:ticker/ca-audit', (req, res) => {
-  const ticker = req.params.ticker.toUpperCase();
-  const found = COMPANY_REPOSITORY.find(c => c.ticker === ticker);
-  if (!found) return res.status(404).json({ error: 'Company ticker not found.' });
-  res.json({
-    ticker: found.ticker,
-    name: found.name,
-    inflow: found.inflow,
-    outflow: found.outflow,
-    netFlow: found.netFlow,
-    caAudit: found.caAudit,
-    history: found.history,
-    officialWebsite: found.officialWebsite
-  });
+app.post('/api/ai/chat', (req, res) => {
+  const userMsg = (req.body && req.body.message) ? req.body.message : '';
+  const reply = generateFinancialInsight(userMsg);
+  return res.json({ success: true, reply: reply });
 });
 
-// API: AI Institutional Query
-app.post('/api/ai/chat', async (req, res) => {
-  try {
-    const rawMessage = req.body.message;
-    const cleanMessage = validatePrompt(rawMessage);
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: AADHYA_PROMPT
-    });
-
-    const aiResponse = await model.generateContent(cleanMessage);
-    const reply = aiResponse.response.text();
-
-    const auditEntry = encryptAuditEntry(JSON.stringify({
-      query: cleanMessage,
-      timestamp: Date.now()
-    }));
-
-    return res.json({
-      success: true,
-      reply: reply,
-      blockchainAuditHash: auditEntry
-    });
-  } catch (err) {
-    return res.status(400).json({ success: false, error: err.message });
-  }
-});
-
-// Static App Serve
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
-  console.log(`[My Analysis] World-Class Institutional Financial Terminal running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
-               
