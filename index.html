@@ -1,309 +1,438 @@
 <!DOCTYPE html>
-<html lang="te">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Market Analysis - Equity Research & Financial Terminal</title>
+  <title>Market Analysis - Institutional Blockchain Terminal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-dark: #080B10;
-      --surface-card: #121721;
-      --border-line: #1F2737;
-      --text-pure: #FFFFFF;
-      --text-dim: #94A3B8;
-      --trade-green: #00D09C;
-      --trade-red: #EB5B56;
+      --bg-core: #07090E;
+      --card-bg: #111622;
+      --border-color: #1D2436;
+      --text-white: #FFFFFF;
+      --text-muted: #94A3B8;
+      --accent-green: #00D09C;
+      --accent-red: #EB5B56;
       --accent-blue: #3B82F6;
+      --gold: #F59E0B;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body { background: var(--bg-dark); color: var(--text-pure); min-height: 100vh; padding-bottom: 60px; }
-    
+    body { background: var(--bg-core); color: var(--text-white); min-height: 100vh; padding-bottom: 70px; }
+
     header {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 16px 20px; border-bottom: 1px solid var(--border-line);
-      position: sticky; top: 0; background: rgba(8, 11, 16, 0.95); backdrop-filter: blur(12px); z-index: 100;
+      padding: 14px 20px; border-bottom: 1px solid var(--border-color);
+      position: sticky; top: 0; background: rgba(7, 9, 14, 0.95); backdrop-filter: blur(15px); z-index: 1000;
     }
-    .logo-container { display: flex; align-items: center; gap: 12px; }
-    .brand-icon {
+    .brand-wrap { display: flex; align-items: center; gap: 10px; }
+    .brand-logo {
       width: 40px; height: 40px; border-radius: 10px;
       background: linear-gradient(135deg, #10B981, #2563EB);
       display: grid; place-items: center; font-weight: 800; font-size: 1.25rem;
     }
-    .brand-title h1 { font-size: 1.15rem; font-weight: 700; }
-    .brand-title span { font-size: 0.72rem; color: var(--trade-green); font-weight: 600; letter-spacing: 0.5px; }
-    
-    .market-badge {
-      display: flex; align-items: center; gap: 6px; font-size: 0.75rem;
-      background: rgba(0, 208, 156, 0.1); color: var(--trade-green);
-      padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(0, 208, 156, 0.25);
-    }
-    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--trade-green); animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+    .brand-title h1 { font-size: 1.1rem; font-weight: 800; }
+    .brand-title span { font-size: 0.7rem; color: var(--accent-green); font-weight: 600; }
 
-    .main-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+    .header-actions { display: flex; align-items: center; gap: 10px; }
+    .auth-btn {
+      background: #1E293B; border: 1px solid var(--border-color); color: white;
+      padding: 8px 14px; border-radius: 8px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    }
+    .auth-btn:hover { background: #334155; }
 
-    .market-strip {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 22px;
+    /* Daily Market Ticker Line */
+    .market-strip-line {
+      background: #0B0F19; border-bottom: 1px solid var(--border-color);
+      overflow-x: auto; white-space: nowrap; padding: 8px 16px; font-size: 0.75rem;
+      display: flex; gap: 24px; scrollbar-width: none;
     }
-    .strip-item {
-      background: var(--surface-card); border: 1px solid var(--border-line); border-radius: 12px; padding: 14px 16px;
-    }
-    .strip-label { font-size: 0.75rem; color: var(--text-dim); font-weight: 600; }
-    .strip-val { font-size: 1.15rem; font-weight: 700; margin: 4px 0; }
-    .strip-trend { font-size: 0.78rem; font-weight: 600; color: var(--trade-green); }
+    .strip-pill { display: inline-flex; align-items: center; gap: 6px; }
+    .pill-green { color: var(--accent-green); font-weight: 600; }
+    .pill-red { color: var(--accent-red); font-weight: 600; }
 
-    .search-panel { margin-bottom: 24px; }
-    .search-box-wrap {
-      position: relative; width: 100%;
+    .container { max-width: 1120px; margin: 0 auto; padding: 18px 16px; }
+
+    /* Hero Banner: Market & Mutual Funds Info */
+    .market-banner-card {
+      background: linear-gradient(135deg, #131B2A 0%, #0F172A 100%);
+      border: 1px solid var(--border-color); border-radius: 16px; padding: 20px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;
     }
+    @media (max-width: 768px) { .market-banner-card { grid-template-columns: 1fr; } }
+    .banner-col { display: flex; flex-direction: column; justify-content: space-between; }
+    .banner-col h2 { font-size: 1.1rem; margin-bottom: 8px; font-weight: 700; }
+    .banner-col p { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; }
+    .shield-badge {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 0.72rem;
+      color: #93C5FD; background: rgba(59, 130, 246, 0.1); padding: 5px 10px; border-radius: 6px; width: fit-content;
+    }
+
+    /* Tabs */
+    .view-tabs { display: flex; gap: 10px; margin-bottom: 18px; }
+    .tab-btn {
+      background: var(--card-bg); border: 1px solid var(--border-color); color: var(--text-muted);
+      padding: 10px 18px; border-radius: 10px; font-weight: 600; font-size: 0.85rem; cursor: pointer;
+    }
+    .tab-btn.active { background: var(--accent-green); color: black; border-color: var(--accent-green); }
+
+    /* Search Bar */
+    .search-wrap { margin-bottom: 24px; }
     .search-input {
-      width: 100%; background: var(--surface-card); border: 1.5px solid var(--border-line);
+      width: 100%; background: var(--card-bg); border: 1.5px solid var(--border-color);
       color: white; padding: 14px 18px; border-radius: 12px; font-size: 0.95rem; outline: none;
-      transition: border-color 0.2s;
     }
-    .search-input:focus { border-color: var(--trade-green); }
+    .search-input:focus { border-color: var(--accent-green); }
 
-    .section-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    /* Stock & MF Grid */
+    .cards-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 30px;
+    }
+    .item-card {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 14px; padding: 18px;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .item-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .item-title { font-weight: 700; font-size: 1rem; }
+    .item-sub { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+    .item-val { font-size: 1.15rem; font-weight: 800; text-align: right; }
+    .buy-action-btn {
+      background: var(--accent-green); color: black; border: none; font-weight: 700;
+      padding: 8px 16px; border-radius: 8px; cursor: pointer; font-size: 0.8rem;
+    }
+    .buy-action-btn:hover { opacity: 0.9; }
 
-    .stocks-grid {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; margin-bottom: 35px;
+    /* Aadhya Female Voice AI Panel */
+    .ai-voice-panel {
+      background: var(--card-bg); border: 1px solid var(--border-color); border-radius: 16px; overflow: hidden;
     }
-    .stock-card {
-      background: var(--surface-card); border: 1px solid var(--border-line); border-radius: 14px; padding: 18px;
-      transition: transform 0.2s, border-color 0.2s;
+    .ai-header {
+      background: #161D2A; padding: 16px; display: flex; justify-content: space-between; align-items: center;
     }
-    .stock-card:hover { transform: translateY(-3px); border-color: #334155; }
-    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-    .card-name { font-weight: 700; font-size: 1rem; }
-    .card-sector { font-size: 0.75rem; color: var(--text-dim); margin-top: 3px; }
-    .card-price { font-size: 1.15rem; font-weight: 800; text-align: right; }
-    .card-chg { font-size: 0.8rem; font-weight: 600; text-align: right; }
-    .pos { color: var(--trade-green); }
-    .neg { color: var(--trade-red); }
-
-    .card-ratios {
-      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-      background: #090D14; padding: 10px; border-radius: 8px; margin: 12px 0;
+    .ai-meta { display: flex; align-items: center; gap: 12px; }
+    .ai-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, #EC4899, #8B5CF6);
+      display: grid; place-items: center; font-size: 1.2rem; font-weight: 800;
     }
-    .ratio-box span { display: block; font-size: 0.68rem; color: var(--text-dim); }
-    .ratio-box b { font-size: 0.82rem; font-weight: 600; }
-
-    .flow-status {
-      display: flex; justify-content: space-between; font-size: 0.75rem; padding: 7px 10px;
-      background: rgba(59, 130, 246, 0.1); border-radius: 6px; color: #93C5FD;
+    .voice-toggle-btn {
+      background: rgba(236, 72, 153, 0.15); border: 1px solid rgba(236, 72, 153, 0.3);
+      color: #F472B6; padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; cursor: pointer;
     }
-    .card-foot { margin-top: 14px; display: flex; justify-content: space-between; align-items: center; }
-    .external-link {
-      font-size: 0.75rem; color: var(--trade-green); text-decoration: none; font-weight: 600;
+    .chat-history {
+      height: 300px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
     }
-    .external-link:hover { text-decoration: underline; }
-
-    .agent-panel {
-      background: var(--surface-card); border: 1px solid var(--border-line); border-radius: 16px; overflow: hidden;
-    }
-    .agent-top {
-      background: #161D2A; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
-    }
-    .agent-meta { display: flex; align-items: center; gap: 10px; }
-    .agent-avatar {
-      width: 38px; height: 38px; border-radius: 50%; background: #2563EB;
-      display: grid; place-items: center; font-weight: 800;
-    }
-    .agent-chat {
-      height: 350px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
-    }
-    .chat-bubble { max-width: 88%; padding: 12px 16px; border-radius: 12px; font-size: 0.88rem; line-height: 1.5; white-space: pre-line; }
-    .chat-ai { background: #1C2433; align-self: flex-start; border-bottom-left-radius: 2px; }
-    .chat-user { background: var(--trade-green); color: #000; font-weight: 600; align-self: flex-end; border-bottom-right-radius: 2px; }
-
-    .agent-footer {
-      display: flex; gap: 8px; padding: 12px; background: #0A0E16; border-top: 1px solid var(--border-line);
-    }
-    .input-field {
-      flex: 1; background: var(--surface-card); border: 1px solid var(--border-line); color: white;
+    .chat-bubble { max-width: 85%; padding: 12px 16px; border-radius: 12px; font-size: 0.88rem; line-height: 1.5; white-space: pre-line; }
+    .bubble-ai { background: #1B2433; align-self: flex-start; border-bottom-left-radius: 2px; }
+    .bubble-user { background: var(--accent-green); color: black; font-weight: 600; align-self: flex-end; border-bottom-right-radius: 2px; }
+    .ai-footer { display: flex; gap: 8px; padding: 12px; background: #0A0E16; border-top: 1px solid var(--border-color); }
+    .ai-input {
+      flex: 1; background: var(--card-bg); border: 1px solid var(--border-color); color: white;
       padding: 12px 16px; border-radius: 10px; outline: none; font-size: 0.9rem;
     }
-    .input-field:focus { border-color: var(--trade-green); }
-    .action-btn {
-      background: var(--trade-green); color: #000; border: none; font-weight: 700;
-      padding: 0 22px; border-radius: 10px; cursor: pointer;
+
+    /* Security Modal (Fingerprint / OTP) */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0, 0, 0, 0.8);
+      display: none; place-items: center; z-index: 2000; padding: 16px;
+    }
+    .modal-card {
+      background: #111622; border: 1px solid var(--border-color); border-radius: 16px;
+      max-width: 380px; width: 100%; padding: 24px; text-align: center;
+    }
+    .modal-card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+    .modal-card p { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 18px; }
+    .biometric-icon-btn {
+      width: 60px; height: 60px; border-radius: 50%; background: #1E293B; border: 2px dashed var(--accent-blue);
+      margin: 0 auto 16px; display: grid; place-items: center; font-size: 1.8rem; cursor: pointer;
+    }
+    .modal-input {
+      width: 100%; background: #07090E; border: 1px solid var(--border-color);
+      color: white; padding: 12px; border-radius: 8px; font-size: 0.9rem; margin-bottom: 12px; outline: none;
     }
   </style>
 </head>
 <body>
 
+  <!-- Header -->
   <header>
-    <div class="logo-container">
-      <div class="brand-icon">M</div>
+    <div class="brand-wrap">
+      <div class="brand-logo">M</div>
       <div class="brand-title">
         <h1>Market Analysis</h1>
-        <span>Institutional Terminal</span>
+        <span>Institutional Blockchain Terminal</span>
       </div>
     </div>
-    <div class="market-badge">
-      <div class="live-dot"></div>
-      NSE/BSE Market Data
+    <div class="header-actions">
+      <button class="auth-btn" id="loginModalBtn">🔐 Sign In / Biometrics</button>
     </div>
   </header>
 
-  <div class="main-wrap">
-    <div class="market-strip">
-      <div class="strip-item">
-        <div class="strip-label">NIFTY 50</div>
-        <div class="strip-val">24,852.40</div>
-        <div class="strip-trend">+142.60 (+0.58%)</div>
+  <!-- Daily Market Strip -->
+  <div class="market-strip-line">
+    <div class="strip-pill"><span>NIFTY 50:</span> <b class="pill-green">24,852.40 (+0.58%)</b></div>
+    <div class="strip-pill"><span>SENSEX:</span> <b class="pill-green">81,320.15 (+0.53%)</b></div>
+    <div class="strip-pill"><span>BSE BREADTH:</span> <b>5,500+ Equities Monitored</b></div>
+    <div class="strip-pill"><span>BLOCKCHAIN AUDIT:</span> <b style="color:#93C5FD;">Merkle SHA-256 Active</b></div>
+  </div>
+
+  <div class="container">
+    <!-- Hero / Infographic Banner -->
+    <div class="market-banner-card">
+      <div class="banner-col">
+        <div>
+          <h2>📈 Complete Indian Share Market Infrastructure</h2>
+          <p>Real-time analytics for every listed equity across NSE & BSE. Unhackable cryptographic architecture ensuring bank-grade protection for all data streams.</p>
+        </div>
+        <div class="shield-badge">🛡️ Bank-Grade DDoS & Anti-Hacking Guard Active</div>
       </div>
-      <div class="strip-item">
-        <div class="strip-label">SENSEX</div>
-        <div class="strip-val">81,320.15</div>
-        <div class="strip-trend">+425.80 (+0.53%)</div>
-      </div>
-      <div class="strip-item">
-        <div class="strip-label">INSTITUTIONAL FLOW</div>
-        <div class="strip-val">₹ 3,420 Cr</div>
-        <div class="strip-trend">+ FII Net Inflow</div>
+      <div class="banner-col">
+        <div>
+          <h2>💼 Direct Mutual Funds & Instant Execution</h2>
+          <p>Select from top-tier Flexi Cap, Mid Cap, and Small Cap funds. Orders are verified and written immutably to the distributed trade ledger.</p>
+        </div>
+        <div class="shield-badge">⛓️ Powered by Cryptographic Blockchain Ledger</div>
       </div>
     </div>
 
-    <div class="search-panel">
-      <div class="search-box-wrap">
-        <input type="text" id="filterInput" class="search-input" placeholder="కంపెనీ పేరు లేదా టిక్కర్ శోధించండి (ఉదా: Reliance, TCS, SBI, HDFC)...">
-      </div>
+    <!-- View Switcher Tabs -->
+    <div class="view-tabs">
+      <button class="tab-btn active" id="tabStocks" onclick="switchTab('stocks')">🏢 All Equities (NSE/BSE)</button>
+      <button class="tab-btn" id="tabMf" onclick="switchTab('mf')">📊 Mutual Funds (Direct Buy)</button>
     </div>
 
-    <div class="section-title">📊 వాచ్‌లిస్ట్ & ఫండమెంటల్ విశ్లేషణ</div>
-    <div class="stocks-grid" id="stocksContainer"></div>
+    <!-- Universal Search Box -->
+    <div class="search-wrap">
+      <input type="text" id="omniSearch" class="search-input" placeholder="Search any Indian stock or fund (e.g., Hero, Tata Motors, MRF, Reliance, Parag Parikh)...">
+    </div>
 
-    <div class="section-title">💬 Aadhya AI - స్వతంత్ర మార్కెట్ విశ్లేషకుడు</div>
-    <div class="agent-panel">
-      <div class="agent-top">
-        <div class="agent-meta">
-          <div class="agent-avatar">AI</div>
+    <!-- Active List Container -->
+    <div class="cards-grid" id="mainDisplayGrid"></div>
+
+    <!-- Aadhya Voice AI Section -->
+    <div style="font-size: 1.05rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+      💬 Aadhya - Female Voice AI Portfolio Analyst
+    </div>
+    <div class="ai-voice-panel">
+      <div class="ai-header">
+        <div class="ai-meta">
+          <div class="ai-avatar">♀</div>
           <div>
-            <div style="font-weight: 700; font-size: 0.95rem;">Aadhya Financial Intelligence</div>
-            <div style="font-size: 0.72rem; color: var(--trade-green);">● ఆన్‌లైన్ - రియల్-టైమ్ సమాధానాలు సిద్ధం</div>
+            <div style="font-weight: 700; font-size: 0.95rem;">Aadhya (Female Voice AI)</div>
+            <div style="font-size: 0.72rem; color: var(--accent-green);">● Voice Engine Ready • Deep Fundamental Analytics</div>
           </div>
+        </div>
+        <button class="voice-toggle-btn" id="voiceToggle">🔊 Voice: On</button>
+      </div>
+
+      <div class="chat-history" id="chatStream">
+        <div class="chat-bubble bubble-ai">
+          Hello! I am Aadhya, your female AI financial analyst. Ask me about any Indian stock, 52-week parameters, or mutual funds. Every trade you place here is recorded into our SHA-256 blockchain ledger.
         </div>
       </div>
 
-      <div class="agent-chat" id="chatArea">
-        <div class="chat-bubble chat-ai">నమస్కారం! నేను మార్కెట్ విశ్లేషణ AI. మీరు ఏ కంపెనీల ఫండమెంటల్స్, P/E లేదా రుణ నిష్పత్తుల గురించి సమాచారం కోరుకుంటున్నారో ఇక్కడ అడగండి.</div>
-      </div>
-
-      <div class="agent-footer">
-        <input type="text" id="queryInput" class="input-field" placeholder="కంపెనీ పేరు లేదా ప్రశ్నను నమోదు చేయండి (eg: Reliance, SBI analysis)...">
-        <button class="action-btn" id="submitBtn">Send</button>
+      <div class="ai-footer">
+        <input type="text" id="aiQueryInput" class="ai-input" placeholder="Ask Aadhya anything (e.g., Analyze Hero MotoCorp, What is the trend for Tata Motors?)...">
+        <button class="buy-action-btn" onclick="executeAiQuery()">Analyze</button>
       </div>
     </div>
   </div>
 
-  <script>
-    let stocksList = [];
+  <!-- Security & Biometric Modal -->
+  <div class="modal-overlay" id="authModal">
+    <div class="modal-card">
+      <h3>Sign In to Terminal</h3>
+      <p>Authenticate with Mobile OTP or Biometric Fingerprint</p>
 
-    async function loadStocks() {
+      <div class="biometric-icon-btn" onclick="triggerFingerprintAuth()" title="Tap for Fingerprint">👆</div>
+      <div style="font-size: 0.75rem; color: var(--accent-blue); margin-bottom: 14px;">Touch fingerprint sensor for instant biometric pass</div>
+
+      <div style="border-top: 1px solid var(--border-color); padding-top: 14px;">
+        <input type="tel" id="mobileNumber" class="modal-input" placeholder="10-digit Mobile Number">
+        <button class="buy-action-btn" style="width: 100%; margin-bottom: 10px;" onclick="requestOtp()">Send OTP</button>
+
+        <input type="text" id="otpCode" class="modal-input" placeholder="Enter 6-Digit OTP" style="display:none;">
+        <button class="buy-action-btn" id="verifyOtpBtn" style="width: 100%; display:none;" onclick="verifyOtp()">Verify & Login</button>
+      </div>
+
+      <button style="background:transparent; border:none; color:var(--text-muted); font-size:0.8rem; margin-top:10px; cursor:pointer;" onclick="closeAuthModal()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    let currentTab = 'stocks';
+    let voiceEnabled = true;
+    let equitiesCache = [];
+    let mfCache = [];
+
+    // Switch between Equities and Mutual Funds
+    function switchTab(type) {
+      currentTab = type;
+      document.getElementById('tabStocks').classList.toggle('active', type === 'stocks');
+      document.getElementById('tabMf').classList.toggle('active', type === 'mf');
+      renderMainGrid();
+    }
+
+    // Load Data
+    async function initializeTerminal() {
       try {
-        const res = await fetch('/api/companies');
-        stocksList = await res.json();
-        drawStocks(stocksList);
+        const [eqRes, mfRes] = await Promise.all([
+          fetch('/api/equities'),
+          fetch('/api/mutual-funds')
+        ]);
+        equitiesCache = await eqRes.json();
+        mfCache = await mfRes.json();
+        renderMainGrid();
       } catch (e) {
-        console.error("డేటా లోడ్ కాలేదు:", e);
+        console.error("Initialization error", e);
       }
     }
 
-    function drawStocks(items) {
-      const container = document.getElementById('stocksContainer');
-      container.innerHTML = '';
-      if (!items || items.length === 0) {
-        container.innerHTML = '<div style="color:#94A3B8; padding:20px;">ఏ కంపెనీ కనుగొనబడలేదు.</div>';
+    function renderMainGrid(items) {
+      const grid = document.getElementById('mainDisplayGrid');
+      grid.innerHTML = '';
+      const list = items || (currentTab === 'stocks' ? equitiesCache : mfCache);
+
+      if (!list || list.length === 0) {
+        grid.innerHTML = '<div style="color:var(--text-muted); padding:20px;">No matching records found.</div>';
         return;
       }
 
-      items.forEach(c => {
-        const isUp = c.change.startsWith('+');
-        const el = document.createElement('div');
-        el.className = 'stock-card';
-        el.innerHTML = `
-          <div class="card-top">
+      if (currentTab === 'stocks') {
+        list.forEach(item => {
+          const isUp = (item.change || '').startsWith('+');
+          const card = document.createElement('div');
+          card.className = 'item-card';
+          card.innerHTML = `
             <div>
-              <div class="card-name">${c.name}</div>
-              <div class="card-sector">${c.ticker} • ${c.sector}</div>
+              <div class="item-header">
+                <div>
+                  <div class="item-title">${item.name}</div>
+                  <div class="item-sub">${item.ticker} • ${item.sector || 'NSE/BSE'}</div>
+                </div>
+                <div>
+                  <div class="item-val">₹${item.price}</div>
+                  <div style="font-size:0.8rem; text-align:right; font-weight:600; color:${isUp ? 'var(--accent-green)' : 'var(--accent-red)'}">${item.change}</div>
+                </div>
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin: 8px 0;">
+                52W Range: <b>${item.fiftyTwoLow}</b> - <b>${item.fiftyTwoHigh}</b>
+              </div>
             </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; border-top:1px solid var(--border-color); padding-top:10px;">
+              <a href="${item.website || 'https://www.nseindia.com'}" target="_blank" style="color:var(--accent-green); font-size:0.75rem; text-decoration:none; font-weight:600;">Website ↗</a>
+              <button class="buy-action-btn" onclick="executeBuyTrade('EQUITY', '${item.ticker}', '${item.price}')">Buy (Blockchain)</button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      } else {
+        list.forEach(fund => {
+          const card = document.createElement('div');
+          card.className = 'item-card';
+          card.innerHTML = `
             <div>
-              <div class="card-price">₹${c.price}</div>
-              <div class="card-chg ${isUp ? 'pos' : 'neg'}">${c.change}</div>
+              <div class="item-header">
+                <div>
+                  <div class="item-title">${fund.name}</div>
+                  <div class="item-sub">${fund.category} • Rating: ${fund.rating}</div>
+                </div>
+                <div>
+                  <div class="item-val">${fund.nav}</div>
+                  <div style="font-size:0.75rem; color:var(--accent-green); text-align:right; font-weight:600;">3Y CAGR: ${fund.cagr3Y}</div>
+                </div>
+              </div>
+              <div style="font-size:0.75rem; color:var(--text-muted); margin: 8px 0;">
+                Min SIP: <b>${fund.minSip}</b> | Direct Growth Plan
+              </div>
             </div>
-          </div>
-          <div class="card-ratios">
-            <div class="ratio-box"><span>P/E</span><b>${c.pe}</b></div>
-            <div class="ratio-box"><span>ROCE</span><b>${c.roce}</b></div>
-            <div class="ratio-box"><span>D/E</span><b>${c.debtToEquity}</b></div>
-          </div>
-          <div class="flow-status">
-            <span>Net Inflow:</span>
-            <b>${c.netFlow}</b>
-          </div>
-          <div class="card-foot">
-            <span style="font-size:0.72rem; color:#94A3B8;">MCap: ${c.marketCap}</span>
-            <a href="${c.officialWebsite}" target="_blank" class="external-link">అధికారిక వెబ్‌సైట్ ↗</a>
-          </div>
-        `;
-        container.appendChild(el);
-      });
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px; border-top:1px solid var(--border-color); padding-top:10px;">
+              <span style="font-size:0.72rem; color:#93C5FD;">Verified Fund</span>
+              <button class="buy-action-btn" onclick="executeBuyTrade('MUTUAL_FUND', '${fund.name}', '${fund.nav}')">Invest / Buy</button>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      }
     }
 
-    document.getElementById('filterInput').addEventListener('input', (e) => {
-      const q = e.target.value.toLowerCase().trim();
-      const filtered = stocksList.filter(c => 
-        c.name.toLowerCase().includes(q) || 
-        c.ticker.toLowerCase().includes(q) ||
-        c.sector.toLowerCase().includes(q)
-      );
-      drawStocks(filtered);
-    });
-
-    const submitBtn = document.getElementById('submitBtn');
-    const queryInput = document.getElementById('queryInput');
-    const chatArea = document.getElementById('chatArea');
-
-    async function sendQuery() {
-      const val = queryInput.value.trim();
-      if (!val) return;
-
-      const userEl = document.createElement('div');
-      userEl.className = 'chat-bubble chat-user';
-      userEl.innerText = val;
-      chatArea.appendChild(userEl);
-      queryInput.value = '';
-      chatArea.scrollTop = chatArea.scrollHeight;
-
-      const aiEl = document.createElement('div');
-      aiEl.className = 'chat-bubble chat-ai';
-      aiEl.innerText = 'విశ్లేషిస్తున్నాను...';
-      chatArea.appendChild(aiEl);
-      chatArea.scrollTop = chatArea.scrollHeight;
-
+    // Blockchain Order Settlement
+    async function executeBuyTrade(assetType, symbol, price) {
       try {
-        const response = await fetch('/api/ai/chat', {
+        const res = await fetch('/api/trade/buy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: val })
+          body: JSON.stringify({ assetType, symbol, quantity: 1, price })
         });
-        const resData = await response.json();
-        aiEl.innerText = resData.reply;
+        const data = await res.json();
+        alert(`✅ Order Settled into Blockchain!\n\nAsset: ${symbol}\nBlock Index: ${data.blockIndex}\nSHA-256 Hash: ${data.blockHash.slice(0, 24)}...`);
       } catch (err) {
-        aiEl.innerText = 'క్షమించండి, సర్వర్ స్పందించడం లేదు. దయచేసి మళ్లీ ప్రయత్నించండి.';
+        alert("Execution error: " + err.message);
       }
-      chatArea.scrollTop = chatArea.scrollHeight;
     }
 
-    submitBtn.addEventListener('click', sendQuery);
-    queryInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendQuery();
+    // Live Search
+    document.getElementById('omniSearch').addEventListener('input', async (e) => {
+      const q = e.target.value.trim();
+      if (!q) { renderMainGrid(); return; }
+
+      if (currentTab === 'stocks') {
+        const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderMainGrid(data);
+      } else {
+        const filtered = mfCache.filter(f => f.name.toLowerCase().includes(q.toLowerCase()));
+        renderMainGrid(filtered);
+      }
     });
 
-    loadStocks();
-  </script>
-</body>
-</html>
+    // Female Voice Synthesizer
+    function speakFemaleVoice(text) {
+      if (!voiceEnabled || !window.speechSynthesis) return;
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      const voices = window.speechSynthesis.getVoices();
+      // Select natural female voice
+      const femaleVoice = voices.find(v => 
+        (v.name.includes("Female") || v.name.includes("Zira") || v.name.includes("Samantha") || v.name.includes("Google UK English Female") || v.name.includes("Natural"))
+      ) || voices[0];
+
+      if (femaleVoice) utterance.voice = femaleVoice;
+      utterance.pitch = 1.1; // Gentle, clear female pitch
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // AI Analysis Execution
+    async function executeAiQuery() {
+      const input = document.getElementById('aiQueryInput');
+      const val = input.value.trim();
+      if (!val) return;
+
+      const chat = document.getElementById('chatStream');
+      const userBubble = document.createElement('div');
+      userBubble.className = 'chat-bubble bubble-user';
+      userBubble.innerText = val;
+      chat.appendChild(userBubble);
+      input.value = '';
+      chat.scrollTop = chat.scrollHeight;
+
+      const aiBubble = document.createElement('div');
+      aiBubble.className = 'chat-bubble bubble-ai';
+      aiBubble.innerText = 'Aadhya is reviewing live order books & fundamental records...';
+      chat.appendChild(aiBubble);
+      chat.scrollTop = chat.scrollHeight;
+
+      try {
+        const res = await fetch('/api/ai/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: val })
+        });
+        const data = await res.json();
+        aiBubble.innerText = data.displayText;
+        speakFemaleVoice(data.speechText);
+      } catch (err) {
+        aiBubble.innerText = 'Network error connecting to financial intelligence         
