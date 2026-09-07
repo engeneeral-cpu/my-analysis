@@ -1,304 +1,309 @@
-   <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="te">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Market Analysis - Institutional Financial Terminal</title>
+  <title>Market Analysis - Equity Research & Financial Terminal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-main: #0B0E14;
-      --card-bg: #151A23;
-      --card-border: #222938;
-      --text-main: #FFFFFF;
-      --text-muted: #94A3B8;
-      --brand-green: #00D09C;
-      --brand-red: #EB5B56;
-      --brand-blue: #2563EB;
+      --bg-dark: #080B10;
+      --surface-card: #121721;
+      --border-line: #1F2737;
+      --text-pure: #FFFFFF;
+      --text-dim: #94A3B8;
+      --trade-green: #00D09C;
+      --trade-red: #EB5B56;
+      --accent-blue: #3B82F6;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Plus Jakarta Sans', sans-serif; }
-    body { background: var(--bg-main); color: var(--text-main); min-height: 100vh; padding-bottom: 50px; }
+    body { background: var(--bg-dark); color: var(--text-pure); min-height: 100vh; padding-bottom: 60px; }
     
     header {
       display: flex; justify-content: space-between; align-items: center;
-      padding: 16px 24px; border-bottom: 1px solid var(--card-border);
-      position: sticky; top: 0; background: rgba(11, 14, 20, 0.95); backdrop-filter: blur(10px); z-index: 100;
+      padding: 16px 20px; border-bottom: 1px solid var(--border-line);
+      position: sticky; top: 0; background: rgba(8, 11, 16, 0.95); backdrop-filter: blur(12px); z-index: 100;
     }
-    .logo-area { display: flex; align-items: center; gap: 10px; }
-    .logo-badge {
-      width: 38px; height: 38px; border-radius: 10px;
-      background: linear-gradient(135deg, #00D09C, #2563EB);
-      display: grid; place-items: center; font-weight: 800; font-size: 1.2rem;
+    .logo-container { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: linear-gradient(135deg, #10B981, #2563EB);
+      display: grid; place-items: center; font-weight: 800; font-size: 1.25rem;
     }
-    .logo-text h1 { font-size: 1.15rem; font-weight: 700; letter-spacing: -0.5px; }
-    .logo-text span { font-size: 0.75rem; color: var(--brand-green); font-weight: 600; }
+    .brand-title h1 { font-size: 1.15rem; font-weight: 700; }
+    .brand-title span { font-size: 0.72rem; color: var(--trade-green); font-weight: 600; letter-spacing: 0.5px; }
     
-    .status-pill {
+    .market-badge {
       display: flex; align-items: center; gap: 6px; font-size: 0.75rem;
-      background: rgba(0, 208, 156, 0.1); color: var(--brand-green);
-      padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(0, 208, 156, 0.2);
+      background: rgba(0, 208, 156, 0.1); color: var(--trade-green);
+      padding: 6px 12px; border-radius: 20px; border: 1px solid rgba(0, 208, 156, 0.25);
     }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand-green); animation: pulse 2s infinite; }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--trade-green); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 
-    .container { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+    .main-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
 
-    .indices-strip {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 24px;
+    .market-strip {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 22px;
     }
-    .index-card {
-      background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; padding: 14px 16px;
+    .strip-item {
+      background: var(--surface-card); border: 1px solid var(--border-line); border-radius: 12px; padding: 14px 16px;
     }
-    .index-card .title { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; }
-    .index-card .val { font-size: 1.1rem; font-weight: 700; margin: 4px 0; }
-    .index-card .growth { font-size: 0.78rem; font-weight: 600; color: var(--brand-green); }
+    .strip-label { font-size: 0.75rem; color: var(--text-dim); font-weight: 600; }
+    .strip-val { font-size: 1.15rem; font-weight: 700; margin: 4px 0; }
+    .strip-trend { font-size: 0.78rem; font-weight: 600; color: var(--trade-green); }
 
-    .search-section { margin-bottom: 24px; }
-    .search-box {
-      width: 100%; background: var(--card-bg); border: 1px solid var(--card-border);
+    .search-panel { margin-bottom: 24px; }
+    .search-box-wrap {
+      position: relative; width: 100%;
+    }
+    .search-input {
+      width: 100%; background: var(--surface-card); border: 1.5px solid var(--border-line);
       color: white; padding: 14px 18px; border-radius: 12px; font-size: 0.95rem; outline: none;
       transition: border-color 0.2s;
     }
-    .search-box:focus { border-color: var(--brand-green); }
+    .search-input:focus { border-color: var(--trade-green); }
 
-    .section-head { font-size: 1.1rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+    .section-title { font-size: 1.05rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 
-    .grid-cards {
-      display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 16px; margin-bottom: 30px;
+    .stocks-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap: 16px; margin-bottom: 35px;
     }
-    .company-card {
-      background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 14px; padding: 18px;
+    .stock-card {
+      background: var(--surface-card); border: 1px solid var(--border-line); border-radius: 14px; padding: 18px;
       transition: transform 0.2s, border-color 0.2s;
     }
-    .company-card:hover { transform: translateY(-3px); border-color: #3b4252; }
-    .comp-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-    .comp-name { font-weight: 700; font-size: 1rem; }
-    .comp-sector { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
-    .comp-price { font-size: 1.1rem; font-weight: 800; text-align: right; }
-    .comp-chg { font-size: 0.8rem; font-weight: 600; text-align: right; }
-    .positive { color: var(--brand-green); }
-    .negative { color: var(--brand-red); }
+    .stock-card:hover { transform: translateY(-3px); border-color: #334155; }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+    .card-name { font-weight: 700; font-size: 1rem; }
+    .card-sector { font-size: 0.75rem; color: var(--text-dim); margin-top: 3px; }
+    .card-price { font-size: 1.15rem; font-weight: 800; text-align: right; }
+    .card-chg { font-size: 0.8rem; font-weight: 600; text-align: right; }
+    .pos { color: var(--trade-green); }
+    .neg { color: var(--trade-red); }
 
-    .metrics-row {
+    .card-ratios {
       display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
-      background: #0D1117; padding: 10px; border-radius: 8px; margin: 12px 0;
+      background: #090D14; padding: 10px; border-radius: 8px; margin: 12px 0;
     }
-    .metric-item span { display: block; font-size: 0.7rem; color: var(--text-muted); }
-    .metric-item b { font-size: 0.82rem; font-weight: 600; }
+    .ratio-box span { display: block; font-size: 0.68rem; color: var(--text-dim); }
+    .ratio-box b { font-size: 0.82rem; font-weight: 600; }
 
-    .flow-badge {
-      display: flex; justify-content: space-between; font-size: 0.75rem; padding: 6px 10px;
-      background: rgba(37, 99, 235, 0.1); border-radius: 6px; color: #93C5FD;
+    .flow-status {
+      display: flex; justify-content: space-between; font-size: 0.75rem; padding: 7px 10px;
+      background: rgba(59, 130, 246, 0.1); border-radius: 6px; color: #93C5FD;
     }
-    .comp-actions { margin-top: 14px; display: flex; justify-content: space-between; align-items: center; }
-    .site-link {
-      font-size: 0.75rem; color: var(--brand-green); text-decoration: none; font-weight: 600;
+    .card-foot { margin-top: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .external-link {
+      font-size: 0.75rem; color: var(--trade-green); text-decoration: none; font-weight: 600;
     }
-    .site-link:hover { text-decoration: underline; }
+    .external-link:hover { text-decoration: underline; }
 
-    .chat-container {
-      background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 16px; overflow: hidden;
+    .agent-panel {
+      background: var(--surface-card); border: 1px solid var(--border-line); border-radius: 16px; overflow: hidden;
     }
-    .chat-header {
-      background: #1C2331; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
+    .agent-top {
+      background: #161D2A; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
     }
-    .aadhya-info { display: flex; align-items: center; gap: 10px; }
-    .aadhya-avatar {
-      width: 36px; height: 36px; border-radius: 50%; background: #EB5B56;
+    .agent-meta { display: flex; align-items: center; gap: 10px; }
+    .agent-avatar {
+      width: 38px; height: 38px; border-radius: 50%; background: #2563EB;
       display: grid; place-items: center; font-weight: 800;
     }
-    .chat-messages {
-      height: 340px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    .agent-chat {
+      height: 350px; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px;
     }
-    .msg { max-width: 85%; padding: 12px 16px; border-radius: 12px; font-size: 0.88rem; line-height: 1.5; white-space: pre-line; }
-    .msg-ai { background: #1E293B; align-self: flex-start; border-bottom-left-radius: 2px; }
-    .msg-user { background: var(--brand-green); color: #000; font-weight: 600; align-self: flex-end; border-bottom-right-radius: 2px; }
+    .chat-bubble { max-width: 88%; padding: 12px 16px; border-radius: 12px; font-size: 0.88rem; line-height: 1.5; white-space: pre-line; }
+    .chat-ai { background: #1C2433; align-self: flex-start; border-bottom-left-radius: 2px; }
+    .chat-user { background: var(--trade-green); color: #000; font-weight: 600; align-self: flex-end; border-bottom-right-radius: 2px; }
 
-    .chat-bar {
-      display: flex; gap: 8px; padding: 12px; background: #0D1117; border-top: 1px solid var(--card-border);
+    .agent-footer {
+      display: flex; gap: 8px; padding: 12px; background: #0A0E16; border-top: 1px solid var(--border-line);
     }
-    .chat-input {
-      flex: 1; background: #151A23; border: 1px solid var(--card-border); color: white;
+    .input-field {
+      flex: 1; background: var(--surface-card); border: 1px solid var(--border-line); color: white;
       padding: 12px 16px; border-radius: 10px; outline: none; font-size: 0.9rem;
     }
-    .chat-input:focus { border-color: var(--brand-green); }
-    .send-btn {
-      background: var(--brand-green); color: black; border: none; font-weight: 700;
-      padding: 0 20px; border-radius: 10px; cursor: pointer;
+    .input-field:focus { border-color: var(--trade-green); }
+    .action-btn {
+      background: var(--trade-green); color: #000; border: none; font-weight: 700;
+      padding: 0 22px; border-radius: 10px; cursor: pointer;
     }
   </style>
 </head>
 <body>
 
   <header>
-    <div class="logo-area">
-      <div class="logo-badge">M</div>
-      <div class="logo-text">
+    <div class="logo-container">
+      <div class="brand-icon">M</div>
+      <div class="brand-title">
         <h1>Market Analysis</h1>
-        <span>Terminal • Groww & Angel Grade</span>
+        <span>Institutional Terminal</span>
       </div>
     </div>
-    <div class="status-pill">
-      <div class="status-dot"></div>
-      NSE/BSE Live
+    <div class="market-badge">
+      <div class="live-dot"></div>
+      NSE/BSE Market Data
     </div>
   </header>
 
-  <div class="container">
-    <div class="indices-strip">
-      <div class="index-card">
-        <div class="title">NIFTY 50</div>
-        <div class="val">24,852.40</div>
-        <div class="growth">+142.60 (+0.58%)</div>
+  <div class="main-wrap">
+    <div class="market-strip">
+      <div class="strip-item">
+        <div class="strip-label">NIFTY 50</div>
+        <div class="strip-val">24,852.40</div>
+        <div class="strip-trend">+142.60 (+0.58%)</div>
       </div>
-      <div class="index-card">
-        <div class="title">SENSEX</div>
-        <div class="val">81,320.15</div>
-        <div class="growth">+425.80 (+0.53%)</div>
+      <div class="strip-item">
+        <div class="strip-label">SENSEX</div>
+        <div class="strip-val">81,320.15</div>
+        <div class="strip-trend">+425.80 (+0.53%)</div>
       </div>
-      <div class="index-card">
-        <div class="title">INSTITUTIONAL NET FLOW</div>
-        <div class="val">₹ 3,420 Cr</div>
-        <div class="growth">+ FII Strong Buying</div>
+      <div class="strip-item">
+        <div class="strip-label">INSTITUTIONAL FLOW</div>
+        <div class="strip-val">₹ 3,420 Cr</div>
+        <div class="strip-trend">+ FII Net Inflow</div>
       </div>
     </div>
 
-    <div class="search-section">
-      <input type="text" id="searchInput" class="search-box" placeholder="కంపెనీ పేరు లేదా టిక్కర్ వెతకండి (ఉదా: Reliance, TCS, HDFC)...">
+    <div class="search-panel">
+      <div class="search-box-wrap">
+        <input type="text" id="filterInput" class="search-input" placeholder="కంపెనీ పేరు లేదా టిక్కర్ శోధించండి (ఉదా: Reliance, TCS, SBI, HDFC)...">
+      </div>
     </div>
 
-    <div class="section-head">🏢 ఇన్‌స్టిట్యూషనల్ వాచ్‌లిస్ట్ & ఆడిట్ రికార్డ్స్</div>
-    <div class="grid-cards" id="companyGrid"></div>
+    <div class="section-title">📊 వాచ్‌లిస్ట్ & ఫండమెంటల్ విశ్లేషణ</div>
+    <div class="stocks-grid" id="stocksContainer"></div>
 
-    <div class="section-head">💬 ఆధ్ర్య (Aadhya AI) - Market Intelligence</div>
-    <div class="chat-container">
-      <div class="chat-header">
-        <div class="aadhya-info">
-          <div class="aadhya-avatar">A</div>
+    <div class="section-title">💬 Aadhya AI - స్వతంత్ర మార్కెట్ విశ్లేషకుడు</div>
+    <div class="agent-panel">
+      <div class="agent-top">
+        <div class="agent-meta">
+          <div class="agent-avatar">AI</div>
           <div>
-            <div style="font-weight: 700; font-size: 0.95rem;">Aadhya (FCA & Lead Analyst)</div>
-            <div style="font-size: 0.72rem; color: var(--brand-green);">● ఆన్‌లైన్ - ఇన్‌స్టంట్ రెస్పాన్స్ సిద్ధం</div>
+            <div style="font-weight: 700; font-size: 0.95rem;">Aadhya Financial Intelligence</div>
+            <div style="font-size: 0.72rem; color: var(--trade-green);">● ఆన్‌లైన్ - రియల్-టైమ్ సమాధానాలు సిద్ధం</div>
           </div>
         </div>
       </div>
 
-      <div class="chat-messages" id="chatMessages">
-        <div class="msg msg-ai">నమస్కారం! నేను ఆధ్ర్య. ఏ కంపెనీ ఫండమెంటల్స్, P/E లేదా క్యాష్ ఫ్లోస్ గురించి విశ్లేషణ కావాలన్నా అడగండి.</div>
+      <div class="agent-chat" id="chatArea">
+        <div class="chat-bubble chat-ai">నమస్కారం! నేను మార్కెట్ విశ్లేషణ AI. మీరు ఏ కంపెనీల ఫండమెంటల్స్, P/E లేదా రుణ నిష్పత్తుల గురించి సమాచారం కోరుకుంటున్నారో ఇక్కడ అడగండి.</div>
       </div>
 
-      <div class="chat-bar">
-        <input type="text" id="userMsg" class="chat-input" placeholder="మీ సందేశాన్ని ఇక్కడ టైప్ చేయండి (eg: Reliance, TCS analysis)...">
-        <button class="send-btn" id="sendBtn">Send</button>
+      <div class="agent-footer">
+        <input type="text" id="queryInput" class="input-field" placeholder="కంపెనీ పేరు లేదా ప్రశ్నను నమోదు చేయండి (eg: Reliance, SBI analysis)...">
+        <button class="action-btn" id="submitBtn">Send</button>
       </div>
     </div>
   </div>
 
   <script>
-    let companiesData = [];
+    let stocksList = [];
 
-    async function fetchCompanies() {
+    async function loadStocks() {
       try {
         const res = await fetch('/api/companies');
-        companiesData = await res.json();
-        renderCompanies(companiesData);
+        stocksList = await res.json();
+        drawStocks(stocksList);
       } catch (e) {
-        console.error("Error loading data", e);
+        console.error("డేటా లోడ్ కాలేదు:", e);
       }
     }
 
-    function renderCompanies(list) {
-      const grid = document.getElementById('companyGrid');
-      grid.innerHTML = '';
-      if (!list || list.length === 0) {
-        grid.innerHTML = '<div style="color:#94A3B8; padding:20px;">ఏ కంపెనీ కనుగొనబడలేదు.</div>';
+    function drawStocks(items) {
+      const container = document.getElementById('stocksContainer');
+      container.innerHTML = '';
+      if (!items || items.length === 0) {
+        container.innerHTML = '<div style="color:#94A3B8; padding:20px;">ఏ కంపెనీ కనుగొనబడలేదు.</div>';
         return;
       }
 
-      list.forEach(c => {
-        const isPos = c.change.startsWith('+');
-        const card = document.createElement('div');
-        card.className = 'company-card';
-        card.innerHTML = `
-          <div class="comp-header">
+      items.forEach(c => {
+        const isUp = c.change.startsWith('+');
+        const el = document.createElement('div');
+        el.className = 'stock-card';
+        el.innerHTML = `
+          <div class="card-top">
             <div>
-              <div class="comp-name">${c.name}</div>
-              <div class="comp-sector">${c.ticker} • ${c.sector}</div>
+              <div class="card-name">${c.name}</div>
+              <div class="card-sector">${c.ticker} • ${c.sector}</div>
             </div>
             <div>
-              <div class="comp-price">₹${c.price}</div>
-              <div class="comp-chg ${isPos ? 'positive' : 'negative'}">${c.change}</div>
+              <div class="card-price">₹${c.price}</div>
+              <div class="card-chg ${isUp ? 'pos' : 'neg'}">${c.change}</div>
             </div>
           </div>
-          <div class="metrics-row">
-            <div class="metric-item"><span>P/E</span><b>${c.pe}</b></div>
-            <div class="metric-item"><span>ROCE</span><b>${c.roce}</b></div>
-            <div class="metric-item"><span>D/E</span><b>${c.debtToEquity}</b></div>
+          <div class="card-ratios">
+            <div class="ratio-box"><span>P/E</span><b>${c.pe}</b></div>
+            <div class="ratio-box"><span>ROCE</span><b>${c.roce}</b></div>
+            <div class="ratio-box"><span>D/E</span><b>${c.debtToEquity}</b></div>
           </div>
-          <div class="flow-badge">
+          <div class="flow-status">
             <span>Net Inflow:</span>
             <b>${c.netFlow}</b>
           </div>
-          <div class="comp-actions">
+          <div class="card-foot">
             <span style="font-size:0.72rem; color:#94A3B8;">MCap: ${c.marketCap}</span>
-            <a href="${c.officialWebsite}" target="_blank" class="site-link">Official Website ↗</a>
+            <a href="${c.officialWebsite}" target="_blank" class="external-link">అధికారిక వెబ్‌సైట్ ↗</a>
           </div>
         `;
-        grid.appendChild(card);
+        container.appendChild(el);
       });
     }
 
-    document.getElementById('searchInput').addEventListener('input', (e) => {
-      const val = e.target.value.toLowerCase().trim();
-      const filtered = companiesData.filter(c => 
-        c.name.toLowerCase().includes(val) || 
-        c.ticker.toLowerCase().includes(val) ||
-        c.sector.toLowerCase().includes(val)
+    document.getElementById('filterInput').addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      const filtered = stocksList.filter(c => 
+        c.name.toLowerCase().includes(q) || 
+        c.ticker.toLowerCase().includes(q) ||
+        c.sector.toLowerCase().includes(q)
       );
-      renderCompanies(filtered);
+      drawStocks(filtered);
     });
 
-    const sendBtn = document.getElementById('sendBtn');
-    const userMsg = document.getElementById('userMsg');
-    const chatMessages = document.getElementById('chatMessages');
+    const submitBtn = document.getElementById('submitBtn');
+    const queryInput = document.getElementById('queryInput');
+    const chatArea = document.getElementById('chatArea');
 
-    async function sendMessage() {
-      const text = userMsg.value.trim();
-      if (!text) return;
+    async function sendQuery() {
+      const val = queryInput.value.trim();
+      if (!val) return;
 
-      const uDiv = document.createElement('div');
-      uDiv.className = 'msg msg-user';
-      uDiv.innerText = text;
-      chatMessages.appendChild(uDiv);
-      userMsg.value = '';
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      const userEl = document.createElement('div');
+      userEl.className = 'chat-bubble chat-user';
+      userEl.innerText = val;
+      chatArea.appendChild(userEl);
+      queryInput.value = '';
+      chatArea.scrollTop = chatArea.scrollHeight;
 
-      const aiDiv = document.createElement('div');
-      aiDiv.className = 'msg msg-ai';
-      aiDiv.innerText = 'విశ్లేషిస్తున్నాను...';
-      chatMessages.appendChild(aiDiv);
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      const aiEl = document.createElement('div');
+      aiEl.className = 'chat-bubble chat-ai';
+      aiEl.innerText = 'విశ్లేషిస్తున్నాను...';
+      chatArea.appendChild(aiEl);
+      chatArea.scrollTop = chatArea.scrollHeight;
 
       try {
         const response = await fetch('/api/ai/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text })
+          body: JSON.stringify({ message: val })
         });
-        const data = await response.json();
-        aiDiv.innerText = data.reply;
+        const resData = await response.json();
+        aiEl.innerText = resData.reply;
       } catch (err) {
-        aiDiv.innerText = 'క్షమించండి, సర్వర్ కనెక్ట్ కాలేదు. దయచేసి మళ్లీ ప్రయత్నించండి.';
+        aiEl.innerText = 'క్షమించండి, సర్వర్ స్పందించడం లేదు. దయచేసి మళ్లీ ప్రయత్నించండి.';
       }
-      chatMessages.scrollTop = chatMessages.scrollHeight;
+      chatArea.scrollTop = chatArea.scrollHeight;
     }
 
-    sendBtn.addEventListener('click', sendMessage);
-    userMsg.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMessage();
+    submitBtn.addEventListener('click', sendQuery);
+    queryInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendQuery();
     });
 
-    fetchCompanies();
+    loadStocks();
   </script>
 </body>
 </html>
