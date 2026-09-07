@@ -1,11 +1,15 @@
-"name": "market-analysis-terminal",
-  "version": "1.0.0",
-  "description": "Institutional Market Terminal",
+{
+  "name": "institutional-market-terminal",
+  "version": "4.0.0",
+  "description": "NSE & BSE Institutional Equity Analytics Engine",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "express": "^4.19.2"
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
   }
 }
+
+
