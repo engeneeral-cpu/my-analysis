@@ -1,15 +1,14 @@
-{
-  "name": "market-analysis-terminal",
-  "version": "4.0.0",
-  "description": "Institutional Market Terminal with Gemini AI Intelligence",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "@google/genai": "^0.1.1",
-    "cors": "^2.8.5",
-    "express": "^4.19.2"
-  }
-}
+const express = require('express');
+const path = require('path');
+const app = express();
+const PORT = process.env.PORT || 4000;
 
+app.use(express.static(__dirname));
+
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server online on port ${PORT}`);
+});
