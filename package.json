@@ -1,5 +1,4 @@
-{
-  "name": "market-analysis-terminal",
+"name": "market-analysis-terminal",
   "version": "1.0.0",
   "description": "Institutional Market Terminal",
   "main": "server.js",
@@ -10,4 +9,3 @@
     "express": "^4.19.2"
   }
 }
-
