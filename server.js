@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const { registerAuthRoutes } = require('./auth-routes');
 const { registerCompanyRoutes } = require('./company-routes');
 const { registerLiveMarketRoutes } = require('./live-market-routes');
+const { registerMarketHistoryRoutes } = require('./market-history-routes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -44,6 +45,7 @@ app.use(express.static(__dirname, {
 registerAuthRoutes(app);
 registerCompanyRoutes(app);
 registerLiveMarketRoutes(app);
+registerMarketHistoryRoutes(app);
 
 let verifiedMarketData = { nifty: null, equities: [] };
 function validateMarketDataset(dataset) { return !!dataset && Array.isArray(dataset.equities); }
