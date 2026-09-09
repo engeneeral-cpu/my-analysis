@@ -24,7 +24,7 @@ function validateMarketDataset(dataset) {
 }
 
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, service: 'aarohi-ai', status: 'ok', time: new Date().toISOString() });
+  res.json({ success: true, service: 'tara-ai', status: 'ok', time: new Date().toISOString() });
 });
 
 app.get('/api/market-data', (req, res) => {
@@ -38,15 +38,15 @@ app.post('/api/analyze', (req, res) => {
   const query = String(req.body?.query || '').trim();
   res.json({
     success: true,
-    aiName: 'Aarohi',
+    aiName: 'Tara',
     found: false,
-    text: `Aarohi is ready to research "${query}". Source-backed company intelligence is served through the company API.`
+    text: `Tara is ready to research "${query}". Source-backed company intelligence is served through the company API.`
   });
 });
 
 // Unknown API routes must return JSON, never index.html.
 app.use('/api', (req, res) => {
-  res.status(404).json({ success: false, error: 'Aarohi API endpoint not found.' });
+  res.status(404).json({ success: false, error: 'Tara API endpoint not found.' });
 });
 
 // Website fallback comes LAST.
@@ -55,5 +55,5 @@ app.get('*', (req, res) => {
 });
 
 app.listen(PORT, '0.0.0.0', () => {
-  console.log(`[Aarohi AI Engine] Active on port ${PORT}`);
+  console.log(`[Tara AI Engine] Active on port ${PORT}`);
 });
