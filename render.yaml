@@ -1,8 +1,47 @@
 services:
   - type: web
-    name: aarohi-ai
+    name: my-analysis-1
     runtime: node
     buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /api/health
     autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: ALLOWED_ORIGINS
+        value: https://my-analysis-1.onrender.com
+      - key: MARKET_DATA_API_URL
+        sync: false
+      - key: MARKET_DATA_API_KEY
+        sync: false
+      - key: MARKET_DATA_PROVIDER_NAME
+        sync: false
+      - key: MARKET_DATA_PROVIDER_TYPE
+        sync: false
+      - key: MARKET_DATA_LICENSE_STATUS
+        sync: false
+      - key: MARKET_DATA_DISPLAY_PERMISSION
+        sync: false
+      - key: MARKET_DATA_REDISTRIBUTION_PERMISSION
+        sync: false
+      - key: MARKET_DATA_ATTRIBUTION_REQUIRED
+        sync: false
+      - key: MARKET_HISTORY_API_URL
+        sync: false
+      - key: MARKET_HISTORY_API_KEY
+        sync: false
+      - key: MARKET_HISTORY_PROVIDER_NAME
+        sync: false
+      - key: MARKET_HISTORY_PROVIDER_TYPE
+        sync: false
+      - key: MARKET_HISTORY_LICENSE_STATUS
+        sync: false
+      - key: MARKET_HISTORY_DISPLAY_PERMISSION
+        sync: false
+      - key: MARKET_HISTORY_REDISTRIBUTION_PERMISSION
+        sync: false
+      - key: MARKET_HISTORY_ATTRIBUTION_REQUIRED
+        sync: false
+      - key: MARKET_HISTORY_INSTRUMENT_KEY_TEMPLATE
+        sync: false
