@@ -1,10 +1,10 @@
 {
-  "name": "market-analysis-terminal",
-  "version": "2.1.0",
-  "description": "Institutional Real-Time Indian Equity Terminal with Buddy AI and secure authentication",
-  "main": "server-entry.js",
+  "name": "aarohi-ai-market-intelligence",
+  "version": "3.0.0",
+  "description": "Aarohi AI source-backed Indian market intelligence platform",
+  "main": "server.js",
   "scripts": {
-    "start": "node server-entry.js"
+    "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.19.2",
