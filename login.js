@@ -3,11 +3,14 @@ const tabs = document.querySelectorAll('.tab');
 const modes = { otp: $('otpMode'), password: $('passwordMode'), passkey: $('passkeyMode') };
 let timerId = null;
 let seconds = 30;
+let confirmationResult = null;
+let recaptchaVerifier = null;
+let firebaseReady = false;
 
 function setStatus(message, good = true) {
   const el = $('status');
   if (!el) return;
-  el.textContent = message;
+  el.textContent = message || '';
   el.style.color = good ? '#72d7a5' : '#ff8f9a';
 }
 
@@ -26,7 +29,7 @@ function switchMode(mode) {
 tabs.forEach(tab => tab.addEventListener('click', () => switchMode(tab.dataset.mode)));
 $('phone')?.addEventListener('input', e => { e.target.value = digits(e.target.value); });
 $('loginPhone')?.addEventListener('input', e => { e.target.value = digits(e.target.value); });
-$('otp')?.addEventListener('input', e => { e.target.value = String(e.target.value || '').replace(/\D/g, '').slice(0, 6); });
+$('otp')?.addEventListener('input', e => { e.target.value = digits(e.target.value).slice(0, 6); });
 
 function startTimer() {
   clearInterval(timerId);
@@ -44,90 +47,109 @@ function startTimer() {
   }, 1000);
 }
 
-async function postJson(url, body) {
-  let response;
+function firebaseConfigured() {
+  const c = window.AAROHI_FIREBASE_CONFIG || {};
+  return Boolean(c.apiKey && !c.apiKey.startsWith('REPLACE_') && c.authDomain && c.projectId && c.appId);
+}
+
+function friendlyFirebaseError(error) {
+  const code = error?.code || '';
+  const messages = {
+    'auth/invalid-phone-number': 'That mobile number is invalid. Check the 10 digits.',
+    'auth/too-many-requests': 'Too many attempts. Please wait and try again later.',
+    'auth/quota-exceeded': 'SMS quota has been reached. Please try again later.',
+    'auth/captcha-check-failed': 'Security check failed. Refresh the page and try again.',
+    'auth/operation-not-allowed': 'Phone sign-in is not enabled in Firebase yet.',
+    'auth/code-expired': 'This OTP expired. Request a new OTP.',
+    'auth/invalid-verification-code': 'That OTP is incorrect. Check the code and try again.',
+    'auth/network-request-failed': 'Network error. Check your internet connection.'
+  };
+  return messages[code] || error?.message || 'Authentication failed. Please try again.';
+}
+
+function initFirebase() {
+  if (!firebaseConfigured()) {
+    setStatus('Firebase is not configured yet. Add the Firebase Web App settings first.', false);
+    return false;
+  }
   try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(body)
-    });
-  } catch (networkError) {
-    throw new Error('Server connection failed. Please refresh and try again.');
+    if (!firebase.apps.length) firebase.initializeApp(window.AAROHI_FIREBASE_CONFIG);
+    firebaseReady = true;
+    return true;
+  } catch (_) {
+    setStatus('Firebase could not start. Check the Firebase configuration.', false);
+    return false;
   }
+}
 
-  const contentType = response.headers.get('content-type') || '';
-  const raw = await response.text();
-  let data = {};
-  if (contentType.includes('application/json')) {
-    try { data = JSON.parse(raw); } catch (_) {}
-  }
-
-  if (!response.ok) {
-    if (response.status === 404) throw new Error('OTP backend is not connected to this Render deployment yet.');
-    if (response.status === 503) throw new Error(data.error || 'OTP service is not configured on Render yet.');
-    if (response.status === 429) throw new Error(data.error || 'Too many OTP requests. Please wait and try again.');
-    throw new Error(data.error || `OTP request failed (HTTP ${response.status}).`);
-  }
-  return data;
+function resetRecaptcha() {
+  try { recaptchaVerifier?.clear(); } catch (_) {}
+  recaptchaVerifier = null;
+  if (!firebaseReady) return;
+  recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+    size: 'invisible',
+    callback: () => {}
+  });
 }
 
 async function sendOtp() {
   const phone = $('phone').value;
   if (!/^\d{10}$/.test(phone)) return setStatus('Enter a valid 10-digit mobile number.', false);
+  if (!firebaseReady && !initFirebase()) return;
   $('sendOtp').disabled = true;
   setStatus('Sending secure OTP…');
   try {
-    const result = await postJson('/api/auth/send-otp', { phone });
+    if (!recaptchaVerifier) resetRecaptcha();
+    confirmationResult = await firebase.auth().signInWithPhoneNumber(`+91${phone}`, recaptchaVerifier);
     $('otpArea').classList.remove('hidden');
     startTimer();
     $('otp').focus();
-    setStatus(result.message || 'OTP sent successfully. Check your phone.');
+    setStatus('OTP sent successfully. Check your phone.');
   } catch (error) {
-    setStatus(error.message, false);
+    setStatus(friendlyFirebaseError(error), false);
+    resetRecaptcha();
   } finally {
     $('sendOtp').disabled = false;
   }
 }
 
-$('sendOtp')?.addEventListener('click', sendOtp);
-$('resendOtp')?.addEventListener('click', sendOtp);
-
-$('verifyOtp')?.addEventListener('click', async () => {
-  const phone = $('phone').value;
+async function verifyOtp() {
   const otp = $('otp').value.replace(/\D/g, '');
-  if (!/^\d{10}$/.test(phone)) return setStatus('Enter a valid 10-digit mobile number.', false);
+  if (!confirmationResult) return setStatus('Request an OTP first.', false);
   if (!/^\d{6}$/.test(otp)) return setStatus('Enter the 6-digit OTP.', false);
   $('verifyOtp').disabled = true;
   setStatus('Verifying OTP securely…');
   try {
-    const result = await postJson('/api/auth/verify-otp', { phone, code: otp });
-    setStatus(result.message || 'Phone verified successfully.');
-    setTimeout(() => { window.location.href = 'novaai.html'; }, 450);
+    await confirmationResult.confirm(otp);
+    setStatus('Phone verified successfully. Opening Aarohi…');
+    setTimeout(() => { window.location.href = 'novaai.html'; }, 500);
   } catch (error) {
-    setStatus(error.message, false);
+    setStatus(friendlyFirebaseError(error), false);
   } finally {
     $('verifyOtp').disabled = false;
   }
-});
+}
+
+$('sendOtp')?.addEventListener('click', sendOtp);
+$('resendOtp')?.addEventListener('click', sendOtp);
+$('verifyOtp')?.addEventListener('click', verifyOtp);
 
 $('passwordLogin')?.addEventListener('click', () => {
   const phone = $('loginPhone').value;
-  const password = $('password').value;
   if (!/^\d{10}$/.test(phone)) return setStatus('Enter a valid 10-digit mobile number.', false);
-  if (password.length < 8) return setStatus('Password must contain at least 8 characters.', false);
-  setStatus('Password authentication endpoint will be enabled after the account database is connected.');
+  setStatus('Password login will be enabled after the secure account service is connected.');
 });
 
-$('passkeyLogin')?.addEventListener('click', async () => {
+$('passkeyLogin')?.addEventListener('click', () => {
   if (!window.PublicKeyCredential || !navigator.credentials) {
-    return setStatus('Passkeys are not available in this browser. Use Mobile OTP.', false);
+    return setStatus('Passkeys are not available in this browser. Use Mobile + OTP.', false);
   }
-  setStatus('Passkey support detected. WebAuthn registration and server challenge verification are next.');
+  setStatus('Passkey support detected. Secure WebAuthn registration is the next authentication layer.');
 });
 
 $('forgotPassword')?.addEventListener('click', () => {
   switchMode('otp');
   setStatus('Use mobile OTP to begin secure account recovery.');
 });
+
+initFirebase();
