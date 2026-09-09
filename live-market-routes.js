@@ -26,7 +26,6 @@ function num(value) {
 }
 
 function normalizeQuote(raw, symbol) {
-  // Adapter accepts a normalized provider response. This prevents fake fallback values.
   const q = raw?.quote || raw?.data || raw;
   const ltp = num(q?.ltp ?? q?.lastPrice ?? q?.price ?? q?.regularMarketPrice);
   const previousClose = num(q?.previousClose ?? q?.prevClose ?? q?.regularMarketPreviousClose);
@@ -47,7 +46,20 @@ function normalizeQuote(raw, symbol) {
     change,
     percentChange,
     asOf: q?.asOf || q?.timestamp || new Date().toISOString(),
-    source: q?.source || process.env.MARKET_DATA_PROVIDER_NAME || 'Configured market-data provider'
+    source: q?.source || process.env.MARKET_DATA_PROVIDER_NAME || 'Configured market-data provider',
+    dataStatus: q?.dataStatus || 'provider-confirmed'
+  };
+}
+
+function complianceMetadata() {
+  return {
+    provider: process.env.MARKET_DATA_PROVIDER_NAME || null,
+    providerType: process.env.MARKET_DATA_PROVIDER_TYPE || 'licensed-or-authorized-provider',
+    licenseStatus: process.env.MARKET_DATA_LICENSE_STATUS || 'not-configured',
+    displayPermission: process.env.MARKET_DATA_DISPLAY_PERMISSION || 'not-configured',
+    redistributionPermission: process.env.MARKET_DATA_REDISTRIBUTION_PERMISSION || 'not-configured',
+    attributionRequired: process.env.MARKET_DATA_ATTRIBUTION_REQUIRED === 'true',
+    environment: process.env.NODE_ENV || 'development'
   };
 }
 
@@ -63,20 +75,24 @@ function registerLiveMarketRoutes(app) {
         success: false,
         live: false,
         error: 'Live market feed is not configured for this deployment.',
-        setup: 'Configure MARKET_DATA_API_URL and MARKET_DATA_API_KEY with an authorized market-data provider.'
+        setup: 'Configure an authorized market-data provider and its permitted-use settings in the server environment.',
+        compliance: complianceMetadata()
       });
     }
 
     try {
       const url = new URL(baseUrl);
-      url.searchParams.set('symbol', symbol);
-      const raw = await fetchJson(url.toString(), { headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' } });
+      const symbolParam = process.env.MARKET_DATA_SYMBOL_PARAM || 'symbol';
+      url.searchParams.set(symbolParam, symbol);
+      const raw = await fetchJson(url.toString(), {
+        headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' }
+      });
       const quote = normalizeQuote(raw, symbol);
       if (quote.ltp === null) throw new Error('Provider response has no last traded price');
       res.set('Cache-Control', 'no-store');
-      res.json({ success: true, live: true, quote });
+      res.json({ success: true, live: true, quote, compliance: complianceMetadata() });
     } catch (error) {
-      res.status(502).json({ success: false, live: false, error: error.message });
+      res.status(502).json({ success: false, live: false, error: error.message, compliance: complianceMetadata() });
     }
   });
 
@@ -84,6 +100,7 @@ function registerLiveMarketRoutes(app) {
     res.json({
       live: Boolean(process.env.MARKET_DATA_API_URL && process.env.MARKET_DATA_API_KEY),
       provider: process.env.MARKET_DATA_PROVIDER_NAME || null,
+      compliance: complianceMetadata(),
       serverTime: new Date().toISOString()
     });
   });
