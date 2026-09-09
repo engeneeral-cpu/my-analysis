@@ -1,14 +1,13 @@
 {
   "name": "market-analysis-terminal",
-  "version": "2.0.0",
-  "description": "Institutional Real-Time Indian Equity Terminal with Buddy AI",
-  "main": "server.js",
+  "version": "2.1.0",
+  "description": "Institutional Real-Time Indian Equity Terminal with Buddy AI and secure authentication",
+  "main": "server-entry.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server-entry.js"
   },
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5"
   }
 }
-
