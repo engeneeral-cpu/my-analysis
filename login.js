@@ -48,7 +48,7 @@ function startTimer() {
 }
 
 function firebaseConfigured() {
-  const c = window.AAROHI_FIREBASE_CONFIG || {};
+  const c = window.TARA_FIREBASE_CONFIG || {};
   return Boolean(c.apiKey && !c.apiKey.startsWith('REPLACE_') && c.authDomain && c.projectId && c.appId);
 }
 
@@ -73,7 +73,7 @@ function initFirebase() {
     return false;
   }
   try {
-    if (!firebase.apps.length) firebase.initializeApp(window.AAROHI_FIREBASE_CONFIG);
+    if (!firebase.apps.length) firebase.initializeApp(window.TARA_FIREBASE_CONFIG);
     firebaseReady = true;
     return true;
   } catch (_) {
@@ -121,7 +121,7 @@ async function verifyOtp() {
   setStatus('Verifying OTP securely…');
   try {
     await confirmationResult.confirm(otp);
-    setStatus('Phone verified successfully. Opening Aarohi…');
+    setStatus('Phone verified successfully. Opening Tara AI…');
     setTimeout(() => { window.location.href = 'novaai.html'; }, 500);
   } catch (error) {
     setStatus(friendlyFirebaseError(error), false);
