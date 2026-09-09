@@ -36,10 +36,7 @@ async function twilioRequest(path, params) {
   const body = new URLSearchParams(params);
   const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/${path}`, {
     method: 'POST',
-    headers: {
-      Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded'
-    },
+    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
     body
   });
   const data = await response.json().catch(() => ({}));
@@ -57,16 +54,18 @@ function createSession(phone) {
   return token;
 }
 
+function readSessionCookie(req) {
+  const header = req.headers.cookie || '';
+  const match = header.split(';').map(v => v.trim()).find(v => v.startsWith('aarohi_session='));
+  return match ? decodeURIComponent(match.slice('aarohi_session='.length)) : null;
+}
+
 function registerAuthRoutes(app) {
   app.post('/api/auth/send-otp', async (req, res) => {
     const phone = normalizePhone(req.body.phone);
     if (!phone) return res.status(400).json({ success: false, error: 'Enter a valid 10-digit Indian mobile number.' });
-    if (!credentialsReady()) {
-      return res.status(503).json({ success: false, error: 'OTP service is not configured on the server yet.' });
-    }
-    if (!allowSend(phone)) {
-      return res.status(429).json({ success: false, error: 'Too many OTP requests. Please try again later.' });
-    }
+    if (!credentialsReady()) return res.status(503).json({ success: false, error: 'OTP service is not configured on the server yet.' });
+    if (!allowSend(phone)) return res.status(429).json({ success: false, error: 'Too many OTP requests. Please try again later.' });
     try {
       const result = await twilioRequest('Verifications', { To: phone, Channel: 'sms' });
       return res.json({ success: true, status: result.status || 'pending', message: 'OTP sent successfully.' });
@@ -79,25 +78,13 @@ function registerAuthRoutes(app) {
   app.post('/api/auth/verify-otp', async (req, res) => {
     const phone = normalizePhone(req.body.phone);
     const code = String(req.body.code || '').replace(/\D/g, '');
-    if (!phone || !/^\d{6}$/.test(code)) {
-      return res.status(400).json({ success: false, error: 'Enter a valid mobile number and 6-digit OTP.' });
-    }
-    if (!credentialsReady()) {
-      return res.status(503).json({ success: false, error: 'OTP service is not configured on the server yet.' });
-    }
+    if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ success: false, error: 'Enter a valid mobile number and 6-digit OTP.' });
+    if (!credentialsReady()) return res.status(503).json({ success: false, error: 'OTP service is not configured on the server yet.' });
     try {
       const result = await twilioRequest('VerificationCheck', { To: phone, Code: code });
-      if (result.status !== 'approved') {
-        return res.status(401).json({ success: false, error: 'Invalid or expired OTP.' });
-      }
+      if (result.status !== 'approved') return res.status(401).json({ success: false, error: 'Invalid or expired OTP.' });
       const session = createSession(phone);
-      res.cookie('novaai_session', session, {
-        httpOnly: true,
-        secure: true,
-        sameSite: 'lax',
-        maxAge: 8 * 60 * 60 * 1000,
-        path: '/'
-      });
+      res.setHeader('Set-Cookie', `aarohi_session=${encodeURIComponent(session)}; Max-Age=28800; Path=/; HttpOnly; Secure; SameSite=Lax`);
       return res.json({ success: true, authenticated: true, message: 'Phone verified successfully.' });
     } catch (error) {
       console.error('[OTP verify]', error.message);
@@ -106,11 +93,9 @@ function registerAuthRoutes(app) {
   });
 
   app.get('/api/auth/session', (req, res) => {
-    const token = req.headers.cookie?.split(';').map(v => v.trim()).find(v => v.startsWith('novaai_session='))?.split('=')[1];
+    const token = readSessionCookie(req);
     const session = token ? sessions.get(token) : null;
-    if (!session || Date.now() - session.createdAt > 8 * 60 * 60 * 1000) {
-      return res.status(401).json({ authenticated: false });
-    }
+    if (!session || Date.now() - session.createdAt > 8 * 60 * 60 * 1000) return res.status(401).json({ authenticated: false });
     res.json({ authenticated: true, phone: `${session.phone.slice(0, 3)}******${session.phone.slice(-2)}` });
   });
 }
