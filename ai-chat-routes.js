@@ -22,7 +22,10 @@ function postJson(url, body, headers = {}) {
         if (res.statusCode < 200 || res.statusCode >= 300) {
           let detail = '';
           try { detail = JSON.parse(text)?.error?.message || ''; } catch {}
-          return reject(new Error(`AI provider HTTP ${res.statusCode}${detail ? `: ${detail}` : ''}`));
+          const err = new Error(`AI provider HTTP ${res.statusCode}${detail ? `: ${detail}` : ''}`);
+          err.statusCode = res.statusCode;
+          reject(err);
+          return;
         }
         try { resolve(JSON.parse(text)); }
         catch { reject(new Error('AI provider returned non-JSON data')); }
@@ -33,6 +36,19 @@ function postJson(url, body, headers = {}) {
     req.write(payload);
     req.end();
   });
+}
+
+function getApiKey() {
+  let key = String(process.env.TARA_AI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
+  // Be tolerant of an accidental shell-style Render value such as:
+  // export OPENAI_API_KEY="sk-..."
+  const match = key.match(/^export\s+(?:TARA_AI_API_KEY|OPENAI_API_KEY)\s*=\s*(.+)$/i);
+  if (match) key = match[1].trim();
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1).trim();
+  }
+  if (!key || key.startsWith('<') || key === 'OPENAI_API_KEY') return '';
+  return key;
 }
 
 const SYSTEM = `You are Tara AI, a warm, intelligent market companion. Speak naturally like a thoughtful, respectful human colleague: clear, conversational, calm and concise. Never pretend to be human. Never invent live or historical market numbers, news, filings, or sources. If current data is unavailable, say so plainly. For market questions distinguish facts, interpretation, scenarios and uncertainty. Do not guarantee profits or outcomes. Ask a short clarifying question only when genuinely necessary. The user may speak Telugu, English, Hindi or mixed language; reply in the user's language and style when practical.`;
@@ -52,9 +68,20 @@ function extractResponseText(raw) {
   return raw?.choices?.[0]?.message?.content || raw?.response || '';
 }
 
+function providerDiagnosis(error) {
+  const status = Number(error?.statusCode || 0);
+  const message = String(error?.message || '').toLowerCase();
+  if (status === 401 || message.includes('invalid api key') || message.includes('incorrect api key')) return 'invalid_api_key';
+  if (status === 429 || message.includes('quota') || message.includes('rate limit') || message.includes('billing')) return 'quota_or_rate_limit';
+  if (status === 403 || message.includes('permission')) return 'permission_denied';
+  if (status === 404 || message.includes('model')) return 'model_or_endpoint';
+  if (message.includes('timeout')) return 'provider_timeout';
+  return 'provider_error';
+}
+
 function registerAIChatRoutes(app) {
   app.get('/api/ai/status', (req, res) => {
-    const key = process.env.TARA_AI_API_KEY || process.env.OPENAI_API_KEY;
+    const key = getApiKey();
     const url = process.env.TARA_AI_API_URL || process.env.OPENAI_API_URL || 'https://api.openai.com/v1/responses';
     const model = process.env.TARA_AI_MODEL || process.env.OPENAI_MODEL || 'gpt-5.6-luna';
     res.set('Cache-Control', 'no-store');
@@ -74,7 +101,7 @@ function registerAIChatRoutes(app) {
 
     if (!safe.length) return res.status(400).json({ success: false, error: 'Message is required' });
 
-    const key = process.env.TARA_AI_API_KEY || process.env.OPENAI_API_KEY;
+    const key = getApiKey();
     const url = process.env.TARA_AI_API_URL || process.env.OPENAI_API_URL || 'https://api.openai.com/v1/responses';
     const model = process.env.TARA_AI_MODEL || process.env.OPENAI_MODEL || 'gpt-5.6-luna';
 
@@ -82,7 +109,7 @@ function registerAIChatRoutes(app) {
       return res.status(503).json({
         success: false,
         ai: false,
-        error: 'Tara AI brain is not connected. Add OPENAI_API_KEY to the Render environment, then redeploy.'
+        error: 'Tara AI brain is not connected. In Render, set OPENAI_API_KEY to the raw secret key only, then redeploy.'
       });
     }
 
@@ -101,8 +128,9 @@ function registerAIChatRoutes(app) {
       res.set('Cache-Control', 'no-store');
       res.json({ success: true, ai: true, reply: String(text), model, asOf: new Date().toISOString() });
     } catch (e) {
-      console.error('[Tara AI] Provider error:', e?.message || e);
-      res.status(502).json({ success: false, ai: false, error: 'Tara AI could not reach the AI provider. Please try again.' });
+      const diagnosis = providerDiagnosis(e);
+      console.error('[Tara AI] Provider error:', diagnosis, e?.message || e);
+      res.status(502).json({ success: false, ai: false, diagnosis, error: 'Tara AI could not reach the AI provider. Check the Render API key, OpenAI billing/permissions, and model configuration.' });
     }
   });
 }
