@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(__dirname));
 
-// Legacy dashboard data kept only for compatibility; live/company pages use the source-backed routes.
+// Legacy dashboard data kept only for compatibility; live/company pages use source-backed routes.
 let verifiedMarketData = { nifty: null, equities: [] };
 
 function validateMarketDataset(dataset) {
@@ -37,7 +37,10 @@ app.post('/api/analyze', (req, res) => {
   });
 });
 
-app.get('*', (req, res) => {
+// Important: server-entry.js registers authentication, company and live-market routes
+// when the server starts. The SPA fallback must NOT swallow /api/* requests.
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
