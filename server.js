@@ -1,15 +1,22 @@
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
+const { registerAuthRoutes } = require('./auth-routes');
+const { registerCompanyRoutes } = require('./company-routes');
+const { registerLiveMarketRoutes } = require('./live-market-routes');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 app.use(express.static(__dirname));
 
-// Legacy dashboard data kept only for compatibility; live/company pages use source-backed routes.
+// Register all API routes BEFORE the SPA fallback.
+registerAuthRoutes(app);
+registerCompanyRoutes(app);
+registerLiveMarketRoutes(app);
+
 let verifiedMarketData = { nifty: null, equities: [] };
 
 function validateMarketDataset(dataset) {
@@ -37,10 +44,13 @@ app.post('/api/analyze', (req, res) => {
   });
 });
 
-// Important: server-entry.js registers authentication, company and live-market routes
-// when the server starts. The SPA fallback must NOT swallow /api/* requests.
-app.get('*', (req, res, next) => {
-  if (req.path.startsWith('/api/')) return next();
+// Unknown API routes must return JSON, never index.html.
+app.use('/api', (req, res) => {
+  res.status(404).json({ success: false, error: 'Aarohi API endpoint not found.' });
+});
+
+// Website fallback comes LAST.
+app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
