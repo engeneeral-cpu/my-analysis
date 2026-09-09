@@ -26,6 +26,7 @@ function switchMode(mode) {
 tabs.forEach(tab => tab.addEventListener('click', () => switchMode(tab.dataset.mode)));
 $('phone')?.addEventListener('input', e => { e.target.value = digits(e.target.value); });
 $('loginPhone')?.addEventListener('input', e => { e.target.value = digits(e.target.value); });
+$('otp')?.addEventListener('input', e => { e.target.value = String(e.target.value || '').replace(/\D/g, '').slice(0, 6); });
 
 function startTimer() {
   clearInterval(timerId);
@@ -44,14 +45,31 @@ function startTimer() {
 }
 
 async function postJson(url, body) {
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'same-origin',
-    body: JSON.stringify(body)
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || 'Request failed.');
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body)
+    });
+  } catch (networkError) {
+    throw new Error('Server connection failed. Please refresh and try again.');
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  const raw = await response.text();
+  let data = {};
+  if (contentType.includes('application/json')) {
+    try { data = JSON.parse(raw); } catch (_) {}
+  }
+
+  if (!response.ok) {
+    if (response.status === 404) throw new Error('OTP backend is not connected to this Render deployment yet.');
+    if (response.status === 503) throw new Error(data.error || 'OTP service is not configured on Render yet.');
+    if (response.status === 429) throw new Error(data.error || 'Too many OTP requests. Please wait and try again.');
+    throw new Error(data.error || `OTP request failed (HTTP ${response.status}).`);
+  }
   return data;
 }
 
