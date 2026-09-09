@@ -11,12 +11,10 @@ function setStatus(message, good = true) {
   el.style.color = good ? '#72d7a5' : '#ff8f9a';
 }
 
-function digits(value) { return value.replace(/\D/g, '').slice(0, 10); }
+function digits(value) { return String(value || '').replace(/\D/g, '').slice(0, 10); }
 
 function switchMode(mode) {
-  Object.entries(modes).forEach(([key, el]) => {
-    if (el) el.classList.toggle('hidden', key !== mode);
-  });
+  Object.entries(modes).forEach(([key, el]) => el?.classList.toggle('hidden', key !== mode));
   tabs.forEach(tab => {
     const active = tab.dataset.mode === mode;
     tab.classList.toggle('active', active);
@@ -45,24 +43,55 @@ function startTimer() {
   }, 1000);
 }
 
-$('sendOtp')?.addEventListener('click', () => {
+async function postJson(url, body) {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'same-origin',
+    body: JSON.stringify(body)
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || 'Request failed.');
+  return data;
+}
+
+async function sendOtp() {
   const phone = $('phone').value;
   if (!/^\d{10}$/.test(phone)) return setStatus('Enter a valid 10-digit mobile number.', false);
-  $('otpArea').classList.remove('hidden');
-  startTimer();
-  $('otp').focus();
-  setStatus('OTP request prepared. Connect the secure server-side OTP provider to send the real code.');
-});
+  $('sendOtp').disabled = true;
+  setStatus('Sending secure OTP…');
+  try {
+    const result = await postJson('/api/auth/send-otp', { phone });
+    $('otpArea').classList.remove('hidden');
+    startTimer();
+    $('otp').focus();
+    setStatus(result.message || 'OTP sent successfully. Check your phone.');
+  } catch (error) {
+    setStatus(error.message, false);
+  } finally {
+    $('sendOtp').disabled = false;
+  }
+}
 
-$('resendOtp')?.addEventListener('click', () => {
-  startTimer();
-  setStatus('OTP resend request prepared.');
-});
+$('sendOtp')?.addEventListener('click', sendOtp);
+$('resendOtp')?.addEventListener('click', sendOtp);
 
-$('verifyOtp')?.addEventListener('click', () => {
+$('verifyOtp')?.addEventListener('click', async () => {
+  const phone = $('phone').value;
   const otp = $('otp').value.replace(/\D/g, '');
+  if (!/^\d{10}$/.test(phone)) return setStatus('Enter a valid 10-digit mobile number.', false);
   if (!/^\d{6}$/.test(otp)) return setStatus('Enter the 6-digit OTP.', false);
-  setStatus('OTP format verified. Server-side verification is required before creating a session.');
+  $('verifyOtp').disabled = true;
+  setStatus('Verifying OTP securely…');
+  try {
+    const result = await postJson('/api/auth/verify-otp', { phone, code: otp });
+    setStatus(result.message || 'Phone verified successfully.');
+    setTimeout(() => { window.location.href = 'novaai.html'; }, 450);
+  } catch (error) {
+    setStatus(error.message, false);
+  } finally {
+    $('verifyOtp').disabled = false;
+  }
 });
 
 $('passwordLogin')?.addEventListener('click', () => {
@@ -70,17 +99,17 @@ $('passwordLogin')?.addEventListener('click', () => {
   const password = $('password').value;
   if (!/^\d{10}$/.test(phone)) return setStatus('Enter a valid 10-digit mobile number.', false);
   if (password.length < 8) return setStatus('Password must contain at least 8 characters.', false);
-  setStatus('Credentials validated locally. Secure server authentication is required; this frontend never stores your password.');
+  setStatus('Password authentication endpoint will be enabled after the account database is connected.');
+});
+
+$('passkeyLogin')?.addEventListener('click', async () => {
+  if (!window.PublicKeyCredential || !navigator.credentials) {
+    return setStatus('Passkeys are not available in this browser. Use Mobile OTP.', false);
+  }
+  setStatus('Passkey support detected. WebAuthn registration and server challenge verification are next.');
 });
 
 $('forgotPassword')?.addEventListener('click', () => {
   switchMode('otp');
   setStatus('Use mobile OTP to begin secure account recovery.');
-});
-
-$('passkeyLogin')?.addEventListener('click', async () => {
-  if (!window.PublicKeyCredential || !navigator.credentials) {
-    return setStatus('Passkeys are not available in this browser. Use Mobile OTP or Password.', false);
-  }
-  setStatus('Passkey support detected. Server-generated WebAuthn challenge and verification are required next.');
 });
