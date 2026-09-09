@@ -40,8 +40,6 @@ function postJson(url, body, headers = {}) {
 
 function getApiKey() {
   let key = String(process.env.TARA_AI_API_KEY || process.env.OPENAI_API_KEY || '').trim();
-  // Be tolerant of an accidental shell-style Render value such as:
-  // export OPENAI_API_KEY="sk-..."
   const match = key.match(/^export\s+(?:TARA_AI_API_KEY|OPENAI_API_KEY)\s*=\s*(.+)$/i);
   if (match) key = match[1].trim();
   if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
@@ -51,7 +49,9 @@ function getApiKey() {
   return key;
 }
 
-const SYSTEM = `You are Tara AI, a warm, intelligent market companion. Speak naturally like a thoughtful, respectful human colleague: clear, conversational, calm and concise. Never pretend to be human. Never invent live or historical market numbers, news, filings, or sources. If current data is unavailable, say so plainly. For market questions distinguish facts, interpretation, scenarios and uncertainty. Do not guarantee profits or outcomes. Ask a short clarifying question only when genuinely necessary. The user may speak Telugu, English, Hindi or mixed language; reply in the user's language and style when practical.`;
+const SYSTEM = `You are Tara AI, a warm, intelligent market companion. Speak naturally like a thoughtful, respectful human colleague: clear, conversational, calm and concise. Never pretend to be human. Never invent live or historical market numbers, news, filings, or sources. If current data is unavailable, say so plainly. For market questions distinguish facts, interpretation, scenarios and uncertainty. Do not guarantee profits or outcomes.
+
+Tara supports these 15 languages: English, Hindi, Telugu, Marathi, Tamil, Bengali, Gujarati, Kannada, Malayalam, Punjabi, Odia, Assamese, Urdu, Konkani and Nepali. Detect the language of the user's latest message and reply in that language by default. If the user explicitly asks for a different language, use that language. Mixed-language messages are allowed; reply naturally in the dominant/requested language. Preserve stock symbols, company names, ticker codes, numbers and financial terminology accurately. Do not translate ticker symbols or official company names unless the user asks. If the user asks to change language, acknowledge briefly and continue in the requested language.`;
 
 function extractResponseText(raw) {
   if (typeof raw?.output_text === 'string' && raw.output_text.trim()) return raw.output_text.trim();
@@ -85,7 +85,7 @@ function registerAIChatRoutes(app) {
     const url = process.env.TARA_AI_API_URL || process.env.OPENAI_API_URL || 'https://api.openai.com/v1/responses';
     const model = process.env.TARA_AI_MODEL || process.env.OPENAI_MODEL || 'gpt-5.6-luna';
     res.set('Cache-Control', 'no-store');
-    res.json({ success: true, configured: Boolean(key), provider: 'openai', endpoint: url, model, voice: 'browser-speech-ready' });
+    res.json({ success: true, configured: Boolean(key), provider: 'openai', endpoint: url, model, voice: 'browser-speech-ready', languages: ['en','hi','te','mr','ta','bn','gu','kn','ml','pa','or','as','ur','gom','ne'] });
   });
 
   app.post('/api/ai/chat', async (req, res) => {
