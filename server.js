@@ -11,10 +11,17 @@ const { registerMarketHistoryRoutes } = require('./market-history-routes');
 const app = express();
 const PORT = process.env.PORT || 4000;
 const isProduction = process.env.NODE_ENV === 'production';
+const RELEASE = process.env.RENDER_GIT_COMMIT || process.env.GIT_COMMIT || 'local';
 app.disable('x-powered-by');
 app.set('trust proxy', 1);
 
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false, referrerPolicy: { policy: 'strict-origin-when-cross-origin' }, frameguard: { action: 'deny' }, hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false }));
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  frameguard: { action: 'deny' },
+  hsts: isProduction ? { maxAge: 31536000, includeSubDomains: true, preload: true } : false
+}));
 
 const allowedOrigins = String(process.env.ALLOWED_ORIGINS || '').split(',').map(v => v.trim()).filter(Boolean);
 app.use(cors({
@@ -35,10 +42,18 @@ const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 20, standardHea
 app.use('/api/auth', authLimiter);
 
 app.use(express.static(__dirname, {
-  dotfiles: 'deny', etag: true, maxAge: isProduction ? '1h' : 0,
-  setHeaders(res) {
+  dotfiles: 'deny',
+  etag: true,
+  maxAge: 0,
+  setHeaders(res, filePath) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+    if (/\.(?:html?|js|css)$/.test(filePath)) {
+      // Prevent a browser from keeping an old UI bundle after a Render deploy.
+      res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
   }
 }));
 
@@ -50,8 +65,8 @@ registerMarketHistoryRoutes(app);
 let verifiedMarketData = { nifty: null, equities: [] };
 function validateMarketDataset(dataset) { return !!dataset && Array.isArray(dataset.equities); }
 
-app.get('/api/health', (req, res) => res.json({ success: true, service: 'tara-ai', status: 'ok', time: new Date().toISOString() }));
-app.get('/api/security-status', (req, res) => res.json({ success: true, security: { headers: true, rateLimiting: true, strictBodyLimits: true, poweredByHidden: true, productionHsts: isProduction, secretsInEnvironmentOnly: true }, note: 'Security controls are enabled; independent penetration testing is still required before production launch.' }));
+app.get('/api/health', (req, res) => res.json({ success: true, service: 'tara-ai', status: 'ok', release: RELEASE, time: new Date().toISOString() }));
+app.get('/api/security-status', (req, res) => res.json({ success: true, security: { headers: true, rateLimiting: true, strictBodyLimits: true, poweredByHidden: true, productionHsts: isProduction, secretsInEnvironmentOnly: true }, release: RELEASE, note: 'Security controls are enabled; independent penetration testing is still required before production launch.' }));
 
 app.get('/api/market-data', (req, res) => {
   if (validateMarketDataset(verifiedMarketData)) return res.json({ success: true, timestamp: new Date().toISOString(), data: verifiedMarketData });
@@ -71,4 +86,4 @@ app.use((err, req, res, next) => {
   return res.status(500).json({ success: false, error: 'Internal server error' });
 });
 app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'index.html')));
-app.listen(PORT, '0.0.0.0', () => console.log(`[Tara AI Engine] Active on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`[Tara AI Engine] Active on port ${PORT} • release ${RELEASE}`));
