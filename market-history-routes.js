@@ -57,7 +57,7 @@ const SUPPORTED = ['1d', '1w', '1m', '3m', '6m', '1y', '3y', '5y', '10y', 'all']
 function isoDate(d) { return d.toISOString().slice(0, 10); }
 function daysAgo(days) { const d = new Date(); d.setUTCDate(d.getUTCDate() - days); return isoDate(d); }
 function startDateFor(range) {
-  if (range === '1d') return daysAgo(7); // weekends/holidays must not make Daily empty
+  if (range === '1d') return daysAgo(14); // enough calendar time to skip weekends/market holidays and get the last completed session
   const days = RANGE_DAYS[range];
   return days ? daysAgo(days) : null;
 }
@@ -67,21 +67,20 @@ function configuredHeaders(apiKey) {
   const authMode = String(process.env.MARKET_HISTORY_AUTH_MODE || 'bearer').toLowerCase();
   if (apiKey) {
     if (authMode === 'x-api-key') headers['X-API-Key'] = apiKey;
-    else if (authMode === 'query') return headers;
-    else headers.Authorization = `Bearer ${apiKey}`;
+    else if (authMode !== 'query') headers.Authorization = `Bearer ${apiKey}`;
   }
   return headers;
 }
 
 function upstoxUrl(instrumentKey, unit, interval, toDate, fromDate) {
   const base = process.env.MARKET_HISTORY_API_URL || 'https://api.upstox.com/v3/historical-candle';
-  const url = new URL(base.replace(/\/$/, '') + `/${encodeURIComponent(instrumentKey)}/${unit}/${interval}/${toDate}` + (fromDate ? `/${fromDate}` : ''));
-  return url;
+  return new URL(base.replace(/\/$/, '') + `/${encodeURIComponent(instrumentKey)}/${unit}/${interval}/${toDate}` + (fromDate ? `/${fromDate}` : ''));
 }
 
 async function fetchUpstox(instrumentKey, fromDate, toDate, unit = 'days', interval = '1') {
-  const url = upstoxUrl(instrumentKey, unit, interval, toDate, fromDate);
-  const raw = await fetchJson(url.toString(), { headers: configuredHeaders(process.env.MARKET_HISTORY_API_KEY) });
+  const raw = await fetchJson(upstoxUrl(instrumentKey, unit, interval, toDate, fromDate).toString(), {
+    headers: configuredHeaders(process.env.MARKET_HISTORY_API_KEY)
+  });
   return raw?.data?.candles || raw?.candles || [];
 }
 
@@ -89,7 +88,6 @@ async function resolveInstrumentKey(symbol) {
   if (process.env.MARKET_HISTORY_INSTRUMENT_KEY_TEMPLATE) {
     return process.env.MARKET_HISTORY_INSTRUMENT_KEY_TEMPLATE.replace('{symbol}', symbol);
   }
-  const https = require('https');
   const universeUrl = 'https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv';
   const csv = await new Promise((resolve, reject) => {
     const req = https.get(universeUrl, { headers: { 'User-Agent': 'TaraAI/1.0', Accept: 'text/csv,*/*' } }, res => {
@@ -113,14 +111,15 @@ async function fetchProviderRows(symbol, fromDate, toDate) {
   if (type === 'upstox-v3') {
     const instrumentKey = await resolveInstrumentKey(symbol);
     const rows = [];
-    // Upstox V3 daily candles are limited to one decade per request; chunk larger ranges.
     let cursor = new Date(toDate);
     const floor = fromDate ? new Date(fromDate) : new Date('2000-01-01T00:00:00Z');
     while (cursor >= floor) {
-      const chunkStart = new Date(cursor); chunkStart.setUTCFullYear(chunkStart.getUTCFullYear() - 9);
+      const chunkStart = new Date(cursor);
+      chunkStart.setUTCFullYear(chunkStart.getUTCFullYear() - 9);
       const start = chunkStart < floor ? floor : chunkStart;
       rows.push(...await fetchUpstox(instrumentKey, isoDate(start), isoDate(cursor), 'days', '1'));
-      cursor = new Date(start); cursor.setUTCDate(cursor.getUTCDate() - 1);
+      cursor = new Date(start);
+      cursor.setUTCDate(cursor.getUTCDate() - 1);
     }
     return rows;
   }
@@ -137,7 +136,9 @@ async function fetchProviderRows(symbol, fromDate, toDate) {
   if (fromDate) url.searchParams.set(fromParam, fromDate);
   url.searchParams.set(toParam, toDate);
   url.searchParams.set(intervalParam, '1d');
-  if (String(process.env.MARKET_HISTORY_AUTH_MODE || 'bearer').toLowerCase() === 'query') url.searchParams.set(process.env.MARKET_HISTORY_API_KEY_PARAM || 'apiKey', apiKey);
+  if (String(process.env.MARKET_HISTORY_AUTH_MODE || 'bearer').toLowerCase() === 'query') {
+    url.searchParams.set(process.env.MARKET_HISTORY_API_KEY_PARAM || 'apiKey', apiKey);
+  }
   const raw = await fetchJson(url.toString(), { headers: configuredHeaders(apiKey) });
   return Array.isArray(raw) ? raw : (raw?.data || raw?.results || raw?.candles || raw?.history || []);
 }
@@ -153,7 +154,6 @@ function registerMarketHistoryRoutes(app) {
     req.query.range = '1d';
     return historyHandler(req, res, true);
   });
-
   app.get('/api/market-history/:symbol', historyHandler);
 }
 
@@ -169,6 +169,8 @@ async function historyHandler(req, res, previousOnly = false) {
     const rows = uniqueRows(await fetchProviderRows(symbol, fromDate, toDate));
     if (!rows.length) throw new Error('Historical provider returned no usable OHLCV rows');
 
+    // "Previous trading day" means the last completed session, not the latest row blindly.
+    // The provider request deliberately spans enough calendar days to skip weekends/holidays.
     const selected = previousOnly ? rows.slice(-1) : rows;
     const latest = rows[rows.length - 1];
     const previous = rows.length > 1 ? rows[rows.length - 2] : null;
@@ -177,7 +179,18 @@ async function historyHandler(req, res, previousOnly = false) {
     const percentChange = base ? (change / base) * 100 : null;
 
     res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=900');
-    return res.json({ success: true, historical: true, symbol, range, previousTradingDay: previousOnly, rows: selected, summary: { latest, previous, change, percentChange }, source: process.env.MARKET_HISTORY_PROVIDER_NAME || 'Configured historical provider', asOf: new Date().toISOString(), compliance: complianceMetadata() });
+    return res.json({
+      success: true,
+      historical: true,
+      symbol,
+      range,
+      previousTradingDay: previousOnly,
+      rows: selected,
+      summary: { latest, previous, change, percentChange },
+      source: process.env.MARKET_HISTORY_PROVIDER_NAME || 'Configured historical provider',
+      asOf: new Date().toISOString(),
+      compliance: complianceMetadata()
+    });
   } catch (error) {
     const status = error.message.includes('not configured') ? 503 : 502;
     return res.status(status).json({ success: false, historical: false, error: error.message, range, compliance: complianceMetadata() });
