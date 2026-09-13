@@ -39,16 +39,50 @@ jobs:
           ALLOWED_ORIGINS: http://127.0.0.1:4000
           PORT: 4000
         run: |
+          set -u
+          rm -f /tmp/tara-ai.log /tmp/tara-health.json /tmp/tara-ai.pid
           nohup npm start > /tmp/tara-ai.log 2>&1 &
-          echo $! > /tmp/tara-ai.pid
+          SERVER_PID=$!
+          echo "$SERVER_PID" > /tmp/tara-ai.pid
+
+          echo "Waiting for Tara AI on 127.0.0.1:4000 (PID $SERVER_PID)..."
+          READY=0
           for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:4000/api/health > /tmp/tara-health.json; then
+            if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+              echo "Tara AI process exited before health check. Startup log:"
+              cat /tmp/tara-ai.log || true
+              exit 1
+            fi
+
+            if curl --fail --silent --show-error --connect-timeout 2 --max-time 5 \
+              http://127.0.0.1:4000/api/health > /tmp/tara-health.json; then
+              READY=1
+              echo "Tara AI is healthy after ${i}s:"
               cat /tmp/tara-health.json
               break
             fi
             sleep 1
           done
-          curl -fsS http://127.0.0.1:4000/api/health
+
+          if [ "$READY" -ne 1 ]; then
+            echo "Tara AI did not become healthy within 30 seconds. Startup log:"
+            cat /tmp/tara-ai.log || true
+            echo "Process status:"
+            ps -p "$SERVER_PID" -f || true
+            exit 1
+          fi
+
+          echo "Final health verification:"
+          curl --fail --silent --show-error --connect-timeout 2 --max-time 5 \
+            http://127.0.0.1:4000/api/health
+
+      - name: Company 360 smoke check
+        env:
+          TARA_BASE_URL: http://127.0.0.1:4000
+        run: |
+          curl --fail --silent --show-error \
+            "$TARA_BASE_URL/api/v1/company/RELIANCE/360" > /tmp/tara-company-360.json
+          node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('/tmp/tara-company-360.json','utf8')); if(!d.success || !d.profile || !d.trading_overview || !d.financials || !d.shareholding || !d.corporate_actions || !d.management || !d.disclosures_news) process.exit(1); console.log('Company 360 schema OK:', d.schemaVersion, d.symbol);"
 
       - name: Full production readiness suite
         env:
