@@ -3,6 +3,7 @@ const assert = require('assert');
 const baseUrl = String(process.env.TARA_BASE_URL || 'http://127.0.0.1:4000').replace(/\/$/, '');
 const explicitSymbol = String(process.env.TARA_TEST_SYMBOL || '').trim().toUpperCase();
 const invalidSymbol = '__TARA_HISTORY_INVALID__';
+const PENDING_NOTICE = 'Awaiting authorized historical storage connection';
 
 async function getJson(path) {
   const response = await fetch(`${baseUrl}${path}`, { headers: { Accept: 'application/json' } });
@@ -41,17 +42,21 @@ async function main() {
   assert.strictEqual(body.range, '1Y');
   assert.strictEqual(body.interval, '1d');
   assert(Array.isArray(body.candles));
+  assert(body.status && typeof body.status === 'object');
   assert(body.metadata && typeof body.metadata === 'object');
-  assert(typeof body.metadata.verified === 'boolean');
-  assert.strictEqual(body.metadata.exchange_holidays_excluded, body.metadata.verified ? body.metadata.exchange_holidays_excluded : false);
+  assert(typeof body.status.verified === 'boolean');
+  assert.strictEqual(body.status.verified, Boolean(body.metadata.verified));
+
   if (body.metadata.verified) {
     assert(body.candles.length > 0, 'Verified historical response must contain candles');
+    assert(body.status.source, 'Verified historical response must identify its source');
     body.candles.forEach(assertCandle);
     assertOrdered(body.candles);
-    assert(body.metadata.source, 'Verified historical response must identify its provider');
+    assert.strictEqual(body.metadata.exchange_holidays_excluded, true);
   } else {
     assert.strictEqual(body.candles.length, 0);
-    assert.strictEqual(body.metadata.notice, 'Historical exchange data pending ingestion');
+    assert.strictEqual(body.status.source, null);
+    assert.strictEqual(body.status.notice, PENDING_NOTICE);
   }
 
   const invalid = await getJson(`/api/v1/company/${invalidSymbol}/history?range=1Y&interval=1d`);
@@ -65,7 +70,7 @@ async function main() {
     candleCount: body.candles.length,
     verified: body.metadata.verified,
     invalidStatus: invalid.response.status,
-    checks: ['valid symbol schema', 'clean pending or verified state', 'OHLC invariants', 'strict ordering', 'unknown symbol 404']
+    checks: ['valid symbol schema', 'authorized pending or verified state', 'OHLC invariants', 'strict ordering', 'unknown symbol 404']
   }, null, 2));
 }
 
