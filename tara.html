@@ -13,79 +13,29 @@
 <div class="shell">
   <aside>
     <div class="logo">T</div><h1>Tara AI</h1><p>Market Intelligence</p>
-    <nav>
-      <a class="active" href="tara.html">Overview</a>
-      <a href="#markets">Markets</a>
-      <a href="#research">AI Research</a>
-      <a class="tara-nav" href="ai-chat.html">🎙️ Talk to Tara</a>
-      <a href="companies.html">Companies</a>
-      <a href="#security">Security</a>
-    </nav>
+    <nav><a class="active" href="tara.html">Overview</a><a href="#markets">Markets</a><a href="#research">AI Research</a><a class="tara-nav" href="ai-chat.html">🎙️ Talk to Tara</a><a href="companies.html">Companies</a><a href="#security">Security</a></nav>
     <div class="secure">● Security active<br><small>Zero-trust foundation</small></div>
   </aside>
-
   <main>
-    <header>
-      <div><small>AI MARKET INTELLIGENCE</small><h2>Understand markets <i>before they move.</i></h2></div>
-      <a href="ai-chat.html" class="talk-head">🎙️ Talk to Tara</a><b>T</b>
-    </header>
-
+    <header><div><small>AI MARKET INTELLIGENCE</small><h2>Understand markets <i>before they move.</i></h2></div><a href="ai-chat.html" class="talk-head">🎙️ Talk to Tara</a><b>T</b></header>
     <section class="tara-composer-container" aria-label="Tara AI universal market search">
       <form id="taraPromptForm" class="tara-composer-box" autocomplete="off">
-        <div class="composer-modes" role="tablist" aria-label="Tara search modes">
-          <button type="button" class="mode-pill active" data-mode="deep">🧠 Deep Analysis</button>
-          <button type="button" class="mode-pill" data-mode="quick">⚡ Quick Search</button>
-          <button type="button" class="mode-pill" data-mode="stock">📈 Stock Mode</button>
-          <button type="button" class="mode-pill" data-mode="market">🌐 Market Search</button>
-        </div>
-
-        <div class="composer-input-wrap">
-          <textarea id="taraQueryInput" rows="1" aria-label="Ask Tara" placeholder="Ask Tara anything about the market…"></textarea>
-          <div id="taraAutocomplete" class="autocomplete" role="listbox" aria-label="Company suggestions"></div>
-        </div>
-
-        <div class="composer-bottom-bar">
-          <div class="composer-left-actions">
-            <input id="taraFileInput" class="hidden-file" type="file" accept="image/*,.pdf,.csv,.xlsx,.xls,.txt,.doc,.docx">
-            <button type="button" id="attachBtn" class="icon-action-btn" title="Attach document or image" aria-label="Attach document or image">📎</button>
-            <button type="button" id="voiceBtn" class="icon-action-btn" title="Voice input" aria-label="Voice input">🎙️</button>
-          </div>
-          <button type="submit" id="sendQueryBtn" class="send-action-btn" aria-label="Send to Tara">↑</button>
-        </div>
+        <div class="composer-modes" role="tablist" aria-label="Tara search modes"><button type="button" class="mode-pill active" data-mode="deep">🧠 Deep Analysis</button><button type="button" class="mode-pill" data-mode="quick">⚡ Quick Search</button><button type="button" class="mode-pill" data-mode="stock">📈 Stock Mode</button><button type="button" class="mode-pill" data-mode="market">🌐 Market Search</button></div>
+        <div class="composer-input-wrap"><textarea id="taraQueryInput" rows="1" aria-label="Ask Tara" placeholder="Ask Tara anything about the market…"></textarea><div id="taraAutocomplete" class="autocomplete" role="listbox" aria-label="Company suggestions"></div></div>
+        <div class="composer-bottom-bar"><div class="composer-left-actions"><input id="taraFileInput" class="hidden-file" type="file" accept="image/*,.pdf,.csv,.xlsx,.xls,.txt,.doc,.docx"><button type="button" id="attachBtn" class="icon-action-btn" title="Attach document or image" aria-label="Attach document or image">📎</button><button type="button" id="voiceBtn" class="icon-action-btn" title="Voice input" aria-label="Voice input">🎙️</button></div><button type="submit" id="sendQueryBtn" class="send-action-btn" aria-label="Send to Tara">↑</button></div>
         <div id="taraPromptStatus" class="composer-status" role="status" aria-live="polite">Tara native intelligence is ready.</div>
       </form>
-
-      <div class="suggestions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
-        <button type="button" class="mode-pill" data-prompt="NIFTY 50 market outlook">NIFTY 50 outlook</button>
-        <button type="button" class="mode-pill" data-prompt="RELIANCE technical analysis">RELIANCE technical analysis</button>
-        <button type="button" class="mode-pill" data-prompt="Explain today's market risks">Market risks</button>
-        <button type="button" class="mode-pill" data-prompt="How does SIP investing work?">Learn investing</button>
-      </div>
-
-      <div id="taraResult" class="composer-result">
-        <div class="result-head"><span class="result-label">TARA RESPONSE</span><span id="taraMode" class="result-label">DEEP</span></div>
-        <div id="taraResultText" class="result-text"></div>
-        <div class="source-note">Verified market data, timestamps and licensed sources will appear here when connected. Tara never presents unverified values as live data.</div>
-      </div>
+      <div class="suggestions" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px"><button type="button" class="mode-pill" data-prompt="NIFTY 50 market outlook">NIFTY 50 outlook</button><button type="button" class="mode-pill" data-prompt="RELIANCE technical analysis">RELIANCE technical analysis</button><button type="button" class="mode-pill" data-prompt="Explain today's market risks">Market risks</button><button type="button" class="mode-pill" data-prompt="How does SIP investing work?">Learn investing</button></div>
+      <div id="taraResult" class="composer-result"><div class="result-head"><span class="result-label">TARA RESPONSE</span><span id="taraMode" class="result-label">DEEP</span></div><div id="taraResultText" class="result-text"></div><div class="source-note">Verified market data, timestamps and licensed sources will appear here when connected. Tara never presents unverified values as live data.</div></div>
     </section>
-
-    <section class="hero">
-      <div><span>● TARA AI ONLINE</span><p>One intelligent workspace for live market signals, research, risk-aware insights and a natural conversation with Tara.</p><div class="hero-actions"><a class="primary" href="ai-chat.html">💬 Chat with Tara →</a><a class="voice-primary" href="ai-chat.html">🎙️ Voice Assistant</a></div></div>
-      <div class="orb">T</div>
-    </section>
-
+    <section class="hero"><div><span>● TARA AI ONLINE</span><p>One intelligent workspace for live market signals, research, risk-aware insights and a natural conversation with Tara.</p><div class="hero-actions"><a class="primary" href="ai-chat.html">💬 Chat with Tara →</a><a class="voice-primary" href="ai-chat.html">🎙️ Voice Assistant</a></div></div><div class="orb">T</div></section>
     <section id="markets"><div class="title"><small>MARKET WATCH</small><h3>Global markets</h3></div><div class="cards"><article><small>NIFTY 50</small><strong>—</strong><em>Live feed pending</em></article><article><small>SENSEX</small><strong>—</strong><em>Live feed pending</em></article><article><small>BANK NIFTY</small><strong>—</strong><em>Live feed pending</em></article><article><small>NASDAQ</small><strong>—</strong><em>Live feed pending</em></article></div></section>
-
     <section class="grid" id="research"><div class="panel"><small>AI ANALYSIS</small><h3>Market intelligence engine</h3><div class="chart"><span></span></div><p>Licensed live market data will replace this demo visualization. No fake prices are presented as live data.</p></div><div class="panel"><small>TARA AI AGENT SYSTEM</small><h3>Specialist AI agents</h3><div class="agent">01 <b>Technical Agent</b><span>RSI · MACD · EMA · VWAP</span></div><div class="agent">02 <b>Research Agent</b><span>Fundamentals · filings · news</span></div><div class="agent">03 <b>Risk Agent</b><span>Volatility · scenarios · uncertainty</span></div><a class="secondary" href="ai-chat.html">Open AI conversation →</a></div></section>
-
-    <section id="security" class="panel" style="margin-top:15px"><small>SAFETY & COMPLIANCE</small><h3>Evidence before confidence</h3><p>Tara AI is an informational market-intelligence system. It does not guarantee returns or present unsupported investment advice. Missing or unverified evidence is clearly disclosed.</p></section>
-    <footer>Tara AI foundation · conversational research and informational analysis · not guaranteed investment returns.</footer>
+    <section id="security" class="panel" style="margin-top:15px"><small>SAFETY & COMPLIANCE</small><h3>Evidence before confidence</h3><p>Tara AI provides informational market analysis only. It does not guarantee returns and should not be treated as personalized investment advice. Tara AI is not a substitute for advice from a SEBI-registered investment adviser. Missing or unverified evidence is clearly disclosed.</p></section>
+    <footer>Tara AI foundation · informational market intelligence · no guaranteed investment returns.</footer>
   </main>
 </div>
 <a class="floating-tara" href="ai-chat.html" aria-label="Open Tara AI voice assistant"><span>🎙️</span><strong>Talk to Tara</strong><small>Chat + Voice</small></a>
-<script src="tara-composer.js?v=20260913-1"></script>
-<script>
-document.querySelectorAll('[data-prompt]').forEach(b=>b.addEventListener('click',()=>{const i=document.getElementById('taraQueryInput');i.value=b.dataset.prompt;i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()}));
-</script>
+<script src="tara-composer.js?v=20260913-1"></script><script>document.querySelectorAll('[data-prompt]').forEach(b=>b.addEventListener('click',()=>{const i=document.getElementById('taraQueryInput');i.value=b.dataset.prompt;i.dispatchEvent(new Event('input',{bubbles:true}));i.focus()}));</script>
 </body>
 </html>
