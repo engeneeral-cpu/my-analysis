@@ -3,6 +3,7 @@ const http = require('http');
 const { MarketDataFoundation } = require('./market-data-foundation');
 
 const marketData = new MarketDataFoundation();
+let pollTimer = null;
 
 function fetchJson(url, options = {}) {
   return new Promise((resolve, reject) => {
@@ -23,11 +24,16 @@ function fetchJson(url, options = {}) {
   });
 }
 
-function num(value) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : null;
+function num(value) { const n = Number(value); return Number.isFinite(n) ? n : null; }
+function providerHeaders(apiKey) {
+  const headers = { Accept: 'application/json' };
+  const mode = String(process.env.MARKET_DATA_AUTH_MODE || 'bearer').toLowerCase();
+  if (!apiKey) return headers;
+  if (mode === 'x-api-key' || mode === 'header') headers[process.env.MARKET_DATA_API_KEY_HEADER || 'X-API-Key'] = apiKey;
+  else if (mode === 'query') return headers;
+  else headers.Authorization = `Bearer ${apiKey}`;
+  return headers;
 }
-
 function normalizeQuote(raw, symbol) {
   const q = raw?.quote || raw?.data || raw;
   const ltp = num(q?.ltp ?? q?.lastPrice ?? q?.price ?? q?.regularMarketPrice);
@@ -38,78 +44,44 @@ function normalizeQuote(raw, symbol) {
   const volume = num(q?.volume ?? q?.totalTradedVolume ?? q?.regularMarketVolume);
   const change = ltp !== null && previousClose !== null ? ltp - previousClose : num(q?.change);
   const percentChange = change !== null && previousClose ? (change / previousClose) * 100 : num(q?.percentChange ?? q?.changePercent);
-  return {
-    symbol, ltp, previousClose, open, high, low, volume, change, percentChange,
-    asOf: q?.asOf || q?.timestamp || new Date().toISOString(),
-    source: q?.source || process.env.MARKET_DATA_PROVIDER_NAME || 'Configured market-data provider',
-    dataStatus: q?.dataStatus || 'provider-confirmed'
-  };
+  return { symbol, ltp, previousClose, open, high, low, volume, change, percentChange, asOf:q?.asOf||q?.timestamp||new Date().toISOString(), source:q?.source||process.env.MARKET_DATA_PROVIDER_NAME||'Configured market-data provider', dataStatus:q?.dataStatus||'provider-confirmed' };
+}
+function complianceMetadata() { return { provider:process.env.MARKET_DATA_PROVIDER_NAME||null, providerType:process.env.MARKET_DATA_PROVIDER_TYPE||'licensed-or-authorized-provider', licenseStatus:process.env.MARKET_DATA_LICENSE_STATUS||'not-configured', displayPermission:process.env.MARKET_DATA_DISPLAY_PERMISSION||'not-configured', redistributionPermission:process.env.MARKET_DATA_REDISTRIBUTION_PERMISSION||'not-configured', attributionRequired:process.env.MARKET_DATA_ATTRIBUTION_REQUIRED==='true', environment:process.env.NODE_ENV||'development' }; }
+
+async function fetchProviderQuote(symbol) {
+  const baseUrl=process.env.MARKET_DATA_API_URL, apiKey=process.env.MARKET_DATA_API_KEY;
+  if(!baseUrl||!apiKey) throw new Error('Live market feed is not configured for this deployment.');
+  const url=new URL(baseUrl);
+  url.searchParams.set(process.env.MARKET_DATA_SYMBOL_PARAM||'symbol',symbol);
+  const mode=String(process.env.MARKET_DATA_AUTH_MODE||'bearer').toLowerCase();
+  if(mode==='query') url.searchParams.set(process.env.MARKET_DATA_API_KEY_PARAM||'apiKey',apiKey);
+  const raw=await fetchJson(url.toString(),{headers:providerHeaders(apiKey)});
+  const quote=normalizeQuote(raw,symbol);
+  if(quote.ltp===null) throw new Error('Provider response has no last traded price');
+  const accepted=marketData.ingestQuote({...quote,verified:true,source:quote.source,retrievedAt:quote.asOf});
+  if(!accepted.accepted) throw new Error(accepted.reason);
+  return quote;
 }
 
-function complianceMetadata() {
-  return {
-    provider: process.env.MARKET_DATA_PROVIDER_NAME || null,
-    providerType: process.env.MARKET_DATA_PROVIDER_TYPE || 'licensed-or-authorized-provider',
-    licenseStatus: process.env.MARKET_DATA_LICENSE_STATUS || 'not-configured',
-    displayPermission: process.env.MARKET_DATA_DISPLAY_PERMISSION || 'not-configured',
-    redistributionPermission: process.env.MARKET_DATA_REDISTRIBUTION_PERMISSION || 'not-configured',
-    attributionRequired: process.env.MARKET_DATA_ATTRIBUTION_REQUIRED === 'true',
-    environment: process.env.NODE_ENV || 'development'
-  };
+function startPolling(){
+  if(pollTimer) clearInterval(pollTimer);
+  const symbols=String(process.env.MARKET_DATA_POLL_SYMBOLS||'').split(',').map(s=>s.trim().toUpperCase()).filter(Boolean).slice(0,100);
+  const interval=Math.max(2000,Number(process.env.MARKET_DATA_POLL_INTERVAL_MS||5000));
+  if(!symbols.length||!process.env.MARKET_DATA_API_URL||!process.env.MARKET_DATA_API_KEY)return;
+  const run=()=>Promise.allSettled(symbols.map(fetchProviderQuote));
+  run(); pollTimer=setInterval(run,interval); pollTimer.unref?.();
 }
 
 function registerLiveMarketRoutes(app) {
-  app.get('/api/live-market/quote/:symbol', async (req, res) => {
-    const symbol = String(req.params.symbol || '').toUpperCase().replace(/[^A-Z0-9._-]/g, '');
-    if (!symbol) return res.status(400).json({ success: false, error: 'Invalid symbol' });
-
-    const baseUrl = process.env.MARKET_DATA_API_URL;
-    const apiKey = process.env.MARKET_DATA_API_KEY;
-    if (!baseUrl || !apiKey) {
-      return res.status(503).json({ success: false, live: false,
-        error: 'Live market feed is not configured for this deployment.',
-        setup: 'Configure an authorized market-data provider and its permitted-use settings in the server environment.',
-        compliance: complianceMetadata() });
-    }
-
-    try {
-      const url = new URL(baseUrl);
-      url.searchParams.set(process.env.MARKET_DATA_SYMBOL_PARAM || 'symbol', symbol);
-      const raw = await fetchJson(url.toString(), { headers: { Authorization: `Bearer ${apiKey}`, Accept: 'application/json' } });
-      const quote = normalizeQuote(raw, symbol);
-      if (quote.ltp === null) throw new Error('Provider response has no last traded price');
-      const accepted = marketData.ingestQuote({ ...quote, verified: true, source: quote.source, retrievedAt: quote.asOf });
-      if (!accepted.accepted) throw new Error(accepted.reason);
-      res.set('Cache-Control', 'no-store');
-      res.json({ success: true, live: true, quote, compliance: complianceMetadata() });
-    } catch (error) {
-      res.status(502).json({ success: false, live: false, error: error.message, compliance: complianceMetadata() });
-    }
+  app.get('/api/live-market/quote/:symbol', async (req,res)=>{
+    const symbol=String(req.params.symbol||'').toUpperCase().replace(/[^A-Z0-9._-]/g,'');
+    if(!symbol)return res.status(400).json({success:false,error:'Invalid symbol'});
+    try{const quote=await fetchProviderQuote(symbol);res.set('Cache-Control','no-store');res.json({success:true,live:true,quote,compliance:complianceMetadata()});}
+    catch(error){const status=error.message.includes('not configured')?503:502;res.status(status).json({success:false,live:false,error:error.message,setup:'Configure an authorized market-data provider and its permitted-use settings in the server environment.',compliance:complianceMetadata()});}
   });
-
-  app.get('/api/live-market/status', (req, res) => {
-    const snapshot = marketData.snapshot();
-    res.json({ success: true, ...snapshot, compliance: complianceMetadata(), serverTime: new Date().toISOString() });
-  });
-
-  // Server-Sent Events bridge. It stays empty until a verified provider sends data.
-  // A future WebSocket adapter can publish through the same MarketDataFoundation events.
-  app.get('/api/live-market/stream', (req, res) => {
-    res.status(200);
-    res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
-    res.flushHeaders?.();
-    res.write(`event: status\ndata: ${JSON.stringify({ live: marketData.isProviderReady(), provider: complianceMetadata() })}\n\n`);
-    const onQuote = data => res.write(`event: quote\ndata: ${JSON.stringify(data)}\n\n`);
-    const onIndex = data => res.write(`event: index\ndata: ${JSON.stringify(data)}\n\n`);
-    const heartbeat = setInterval(() => res.write(': heartbeat\n\n'), 25000);
-    marketData.on('quote', onQuote);
-    marketData.on('index', onIndex);
-    req.on('close', () => { clearInterval(heartbeat); marketData.off('quote', onQuote); marketData.off('index', onIndex); });
-  });
-
-  app.get('/api/live-market/health', (req, res) => {
-    res.json({ live: marketData.isProviderReady(), provider: marketData.provider, compliance: complianceMetadata(), serverTime: new Date().toISOString() });
-  });
+  app.get('/api/live-market/status',(req,res)=>{const snapshot=marketData.snapshot();res.json({success:true,...snapshot,compliance:complianceMetadata(),serverTime:new Date().toISOString()});});
+  app.get('/api/live-market/stream',(req,res)=>{res.status(200);res.set({'Content-Type':'text/event-stream','Cache-Control':'no-cache, no-transform',Connection:'keep-alive','X-Accel-Buffering':'no'});res.flushHeaders?.();res.write(`event: status\ndata: ${JSON.stringify({live:marketData.isProviderReady(),provider:complianceMetadata()})}\n\n`);const onQuote=data=>res.write(`event: quote\ndata: ${JSON.stringify(data)}\n\n`);const onIndex=data=>res.write(`event: index\ndata: ${JSON.stringify(data)}\n\n`);const heartbeat=setInterval(()=>res.write(': heartbeat\n\n'),25000);marketData.on('quote',onQuote);marketData.on('index',onIndex);req.on('close',()=>{clearInterval(heartbeat);marketData.off('quote',onQuote);marketData.off('index',onIndex);});});
+  app.get('/api/live-market/health',(req,res)=>res.json({live:marketData.isProviderReady(),provider:marketData.provider,compliance:complianceMetadata(),polling:{enabled:!!pollTimer,intervalMs:Number(process.env.MARKET_DATA_POLL_INTERVAL_MS||5000),symbols:String(process.env.MARKET_DATA_POLL_SYMBOLS||'').split(',').filter(Boolean).length},serverTime:new Date().toISOString()}));
+  startPolling();
 }
-
-module.exports = { registerLiveMarketRoutes, marketData };
+module.exports={registerLiveMarketRoutes,marketData};
