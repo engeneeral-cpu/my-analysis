@@ -5,8 +5,10 @@ const NSE_EQUITY_URL = 'https://nsearchives.nseindia.com/content/equities/EQUITY
 // The actual distribution URL/access is controlled by BSE; configure the licensed/authorized
 // endpoint in BSE_SECURITY_MASTER_URL instead of hard-coding an unverified URL.
 const BSE_SECURITY_MASTER_URL = String(process.env.BSE_SECURITY_MASTER_URL || '').trim();
+const BSE_LICENSE_STATUS = String(process.env.BSE_SECURITY_MASTER_LICENSE_STATUS || '').trim().toLowerCase();
+const BSE_ALLOWED = ['licensed', 'authorized', 'active'].includes(BSE_LICENSE_STATUS);
 const CACHE_MS = 6 * 60 * 60 * 1000;
-let cache = { at: 0, rows: [], sources: [] };
+let cache = { at: 0, rows: [], sources: [], bseMasterConnected: false };
 
 function download(url) {
   return new Promise((resolve, reject) => {
@@ -120,20 +122,26 @@ async function getUniverse() {
   const nseRows = parseCsv(nseCsv.toString('utf8')).filter(x => !x.series || normalize(x.series) === 'EQ');
 
   let bseRows = [];
+  let bseMasterConnected = false;
   const sources = ['NSE official security master'];
-  if (BSE_SECURITY_MASTER_URL) {
+  if (BSE_SECURITY_MASTER_URL && BSE_ALLOWED) {
     try {
       const bseCsv = await download(BSE_SECURITY_MASTER_URL);
       bseRows = parseCsv(bseCsv.toString('utf8')).filter(x => !x.series || ['EQ', 'A', 'B'].includes(normalize(x.series)));
-      if (bseRows.length) sources.push('BSE official/authorized security master');
+      if (bseRows.length) {
+        bseMasterConnected = true;
+        sources.push('BSE official/authorized security master');
+      }
     } catch (error) {
       console.error('[Tara BSE Master]', error.message);
     }
+  } else if (BSE_SECURITY_MASTER_URL && !BSE_ALLOWED) {
+    console.warn('[Tara BSE Master] Feed URL configured but license status is not licensed/authorized/active; BSE data disabled.');
   }
 
   if (!nseRows.length) throw new Error('NSE security master returned no equity records');
   const rows = mergeUniverses(nseRows, bseRows);
-  cache = { at: Date.now(), rows, sources };
+  cache = { at: Date.now(), rows, sources, bseMasterConnected };
   return cache;
 }
 
@@ -155,7 +163,7 @@ function registerCompanyRoutes(app) {
         success: true,
         source: universe.sources,
         updatedAt: new Date(universe.at).toISOString(),
-        coverage: { nse: nseCount, bse: bseCount, both: bothCount, bseMasterConnected: BSE_SECURITY_MASTER_URL.length > 0 && bseCount > 0 },
+        coverage: { nse: nseCount, bse: bseCount, both: bothCount, bseMasterConnected: universe.bseMasterConnected },
         total: universe.rows.length,
         matched: matches.length,
         results: matches.slice(0, limit)
