@@ -1,6 +1,7 @@
 const { getUniverse } = require('./company-routes');
 const rateLimit = require('express-rate-limit');
 const { loadCompany360Data } = require('./company-360-data-service');
+const { loadCompany360News } = require('./company-360-news-service');
 
 const CACHE_MS = 15 * 60 * 1000;
 const cache = new Map();
@@ -39,6 +40,14 @@ function emptyManagement() {
   };
 }
 
+function emptyDisclosuresNews() {
+  return {
+    data: [],
+    status: { verified: false, as_of_date: null, source: null },
+    notice: 'Awaiting official exchange disclosure or licensed news source'
+  };
+}
+
 function buildFinancials(provider) {
   if (!provider.verified || !Array.isArray(provider.financials) || provider.financials.length === 0) return emptyFinancials();
   return { data: provider.financials, status: { verified: true, as_of_date: provider.as_of_date, source: provider.source }, notice: null };
@@ -72,6 +81,15 @@ function buildManagement(provider) {
   };
 }
 
+function buildDisclosuresNews(news) {
+  if (!news || news.verified !== true || !Array.isArray(news.items) || news.items.length === 0) return emptyDisclosuresNews();
+  return {
+    data: news.items,
+    status: { verified: true, as_of_date: news.as_of_date, source: news.source },
+    notice: null
+  };
+}
+
 async function getCompany360(symbol) {
   const cached = cache.get(symbol);
   if (cached && Date.now() - cached.at < CACHE_MS) return cached.data;
@@ -85,13 +103,14 @@ async function getCompany360(symbol) {
   }
 
   const generatedAt = new Date().toISOString();
-  const provider = await loadCompany360Data(symbol);
+  const [provider, news] = await Promise.all([loadCompany360Data(symbol), loadCompany360News(symbol)]);
   const identitySource = company.verifiedSources.join(' + ') || 'Verified company master';
   const management = buildManagement(provider);
+  const disclosuresNews = buildDisclosuresNews(news);
 
   const result = {
     success: true,
-    schemaVersion: '1.3.0',
+    schemaVersion: '1.4.0',
     symbol,
     generatedAt,
     data_policy: 'strict-zero-fake-data',
@@ -118,13 +137,14 @@ async function getCompany360(symbol) {
     shareholding: buildShareholding(provider),
     corporate_actions: buildCorporateActions(provider),
     management,
-    disclosures_news: { data: [], status: { verified: false, as_of_date: null, source: null }, notice: 'Awaiting official exchange disclosure' },
+    disclosures_news: disclosuresNews,
     sources: {
       verified_universe: universe.sources,
       financials: provider.verified ? provider.source : null,
       shareholding: provider.verified ? provider.source : null,
       corporate_actions: provider.verified && provider.corporate_actions.length ? provider.source : null,
-      management: management.metadata.verified ? management.metadata.source : null
+      management: management.metadata.verified ? management.metadata.source : null,
+      disclosures_news: disclosuresNews.status.verified ? disclosuresNews.status.source : null
     }
   };
 
@@ -162,5 +182,7 @@ module.exports = {
   buildCorporateActions,
   emptyCorporateActions,
   buildManagement,
-  emptyManagement
+  emptyManagement,
+  buildDisclosuresNews,
+  emptyDisclosuresNews
 };
