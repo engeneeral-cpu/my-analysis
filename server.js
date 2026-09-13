@@ -11,6 +11,7 @@ const { registerLiveMarketRoutes } = require('./live-market-routes');
 const { registerMarketPipelineRoutes } = require('./market-pipeline-routes');
 const { registerMarketResilienceRoutes } = require('./market-resilience-routes');
 const { registerMarketHistoryRoutes } = require('./market-history-routes');
+const { registerExchangeCalendarRoutes } = require('./exchange-calendar');
 const { registerAIChatRoutes } = require('./ai-chat-routes');
 const { providerStatus, targetStatus, analyze: analyzeTara } = require('./tara-intelligence-engine');
 
@@ -26,7 +27,7 @@ app.use(express.json({limit:'100kb',strict:true})); app.use(express.urlencoded({
 const apiLimiter=rateLimit({windowMs:60000,limit:120,standardHeaders:'draft-8',legacyHeaders:false,message:{success:false,error:'Too many requests. Please try again later.'}}); app.use('/api',apiLimiter);
 const authLimiter=rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:'draft-8',legacyHeaders:false,message:{success:false,error:'Too many authentication attempts. Please try again later.'}}); app.use('/api/auth',authLimiter);
 app.use(express.static(__dirname,{dotfiles:'deny',etag:true,maxAge:0,setHeaders(res,filePath){res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Permissions-Policy','camera=(), microphone=(self), geolocation=()');if(/\.(?:html?|js|css)$/.test(filePath))res.setHeader('Cache-Control','no-cache');else res.setHeader('Cache-Control','public, max-age=3600');}}));
-registerAuthRoutes(app); registerCompanyRoutes(app); registerCompanyIntelligenceRoutes(app); registerCompany360Routes(app); registerLiveMarketRoutes(app); registerMarketPipelineRoutes(app); registerMarketResilienceRoutes(app); registerMarketHistoryRoutes(app); registerAIChatRoutes(app);
+registerAuthRoutes(app); registerCompanyRoutes(app); registerCompanyIntelligenceRoutes(app); registerCompany360Routes(app); registerLiveMarketRoutes(app); registerMarketPipelineRoutes(app); registerMarketResilienceRoutes(app); registerMarketHistoryRoutes(app); registerExchangeCalendarRoutes(app); registerAIChatRoutes(app);
 let verifiedMarketData={nifty:null,equities:[]}; function validateMarketDataset(d){return !!d&&Array.isArray(d.equities);}
 app.get('/api/health',(req,res)=>res.json({success:true,service:'tara-ai',status:'ok',release:RELEASE,time:new Date().toISOString()}));
 app.get('/api/security-status',(req,res)=>res.json({success:true,security:{headers:true,rateLimiting:true,strictBodyLimits:true,poweredByHidden:true,productionHsts:isProduction,secretsInEnvironmentOnly:true,microphonePolicy:'self'},release:RELEASE,note:'Security controls are enabled; independent penetration testing is still required before production launch.'}));
