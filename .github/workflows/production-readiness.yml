@@ -84,6 +84,11 @@ jobs:
             "$TARA_BASE_URL/api/v1/company/RELIANCE/360" > /tmp/tara-company-360.json
           node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('/tmp/tara-company-360.json','utf8')); if(!d.success || !d.profile || !d.trading_overview || !d.financials || !d.shareholding || !d.corporate_actions || !d.management || !d.disclosures_news) process.exit(1); console.log('Company 360 schema OK:', d.schemaVersion, d.symbol);"
 
+      - name: Company 360 consolidated integration verification
+        env:
+          TARA_BASE_URL: http://127.0.0.1:4000
+        run: npm run test:company-360:integration
+
       - name: Full production readiness suite
         env:
           TARA_BASE_URL: http://127.0.0.1:4000
