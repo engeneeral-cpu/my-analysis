@@ -1,9 +1,33 @@
 const KNOWN_SYMBOLS = new Set(['TCS','TATAMOTORS','TATASTEEL','TATAELXSI','RELIANCE','INFY','INFOSYS','HDFCBANK','HDFC','ICICIBANK','SBIN','ITC','LT','WIPRO','HCLTECH','BHARTIARTL','MARUTI','M&M','M&MFIN','AXISBANK','KOTAKBANK','ADANIENT','ADANIPORTS','SUNPHARMA','NTPC','POWERGRID','ONGC','COALINDIA','ASIANPAINT','HINDUNILVR','BAJFINANCE','BAJAJFINSV','NESTLEIND','ULTRACEMCO','TITAN','TECHM','JSWSTEEL','BANKNIFTY','NIFTY','NIFTY50','SENSEX']);
 const ALIASES = new Map([['TATA MOTORS','TATAMOTORS'],['TATA MOTOR','TATAMOTORS'],['RELIANCE INDUSTRIES','RELIANCE'],['RELIANCE','RELIANCE'],['INFOSYS','INFY'],['HDFC BANK','HDFCBANK'],['ICICI BANK','ICICIBANK'],['STATE BANK OF INDIA','SBIN'],['SBI','SBIN'],['LARSEN AND TOUBRO','LT'],['L&T','LT'],['M AND M','M&M'],['MAHINDRA AND MAHINDRA','M&M'],['BANK NIFTY','BANKNIFTY'],['NIFTY 50','NIFTY50'],['SENSEX','SENSEX']]);
 const LANGS = new Set(['en','hi','te','mr','ta','bn','gu','kn','ml','pa','or','as','ur','gom','ne']);
+const STOP_WORDS = new Set(['HI','HELLO','HEY','HO','TARA','AI','OK','OKAY','YES','NO','NAMASTE']);
 function normalizeLanguage(value){const x=String(value||'en').toLowerCase().trim();return LANGS.has(x)?x:'en';}
-function extractSymbol(text=''){const raw=String(text).toUpperCase().replace(/[’']/g,"'").replace(/[^-A-Z0-9&. ]+/g,' ');for(const [alias,symbol] of ALIASES){const pattern='\\b'+alias.replace(/[&]/g,'\\&').replace(/ /g,'\\s+')+'\\b';if(new RegExp(pattern,'i').test(raw))return symbol;}const tokens=raw.split(/\s+/).filter(Boolean);const candidates=tokens.filter(t=>KNOWN_SYMBOLS.has(t)||/^[A-Z]{2,15}$/.test(t));if(candidates.length===1)return candidates[0];return tokens.find(t=>/^[A-Z]{2,15}$/.test(t))||'';}
-function detectIntent(query=''){const q=String(query).toLowerCase().trim();if(!q)return'GENERAL_MARKET';if(/^(hi|hello|hey|namaste|good morning|good afternoon|good evening|नमस्ते|हाय|नमस्कार|హాయ్|హలో|నమస్తే|வணக்கம்|ನಮಸ್ಕಾರ|നമസ്കാരം|ਸਤ ਸ੍ਰੀ ਅਕਾਲ|নমস্কার)[!,. ]*$/.test(q))return'GREETING';if(/\\b(tomorrow|today|now|next|open|close|opening|closing|market hours|market open|market closed|trading session|pre[- ]?open|market timing|market time|రేపు|ఈరోజు|మార్కెట్|நாளை|இன்று|சந்தை|कल|आज|बाज़ार|उद्या|बाजार|നാളെ|ഇന്ന്|ಮಾರುಕಟ್ಟೆ|ನಾಳೆ|ਕੱਲ੍ਹ|ਅੱਜ|বাজার|କାଲି|ଆଜି|বজাৰ|কালি|کل|بازار)\\b/.test(q))return'MARKET_STATUS';if(/\\b(price|share price|stock price|ltp|quote|cmp|current value|current price|ధర|షేర్ ధర|விலை|பங்கு விலை|कीमत|शेयर भाव|किंमत|মূল্য|দাম|দর|ભાવ|ಬೆಲೆ|ಷೇರು ಬೆಲೆ|വില|ഓഹരി വില|ਕੀਮਤ|ਸ਼ੇਅਰ ਕੀਮਤ|ମୂଲ୍ୟ|ଶେୟାର ମୂଲ୍ୟ|قیمت|شیئر قیمت)\\b/.test(q))return'QUOTE';if(/\\b(rsi|macd|sma|ema|vwap|technical|trend|support|resistance|breakout|candlestick|moving average|chart|technical analysis)\\b/.test(q))return'TECHNICAL_ANALYSIS';if(/\\b(financial|fundamental|pe|p\/e|profit|revenue|eps|debt|cash flow|balance sheet|valuation|growth|margin)\\b/.test(q))return'FUNDAMENTAL_ANALYSIS';if(/\\b(risk|volatility|drawdown|safe|danger|downside)\\b/.test(q))return'RISK_ANALYSIS';if(/\\b(portfolio|sip|allocation|diversif|holdings)\\b/.test(q))return'PORTFOLIO';if(/\\b(stock|share|company|nse|bse|symbol|listed)\\b/.test(q)||extractSymbol(q))return'MARKET_SEARCH';return'GENERAL_MARKET';}
+function extractSymbol(text=''){
+  const raw=String(text).toUpperCase().replace(/[’']/g,"'").replace(/[^-A-Z0-9&. ]+/g,' ');
+  for(const [alias,symbol] of ALIASES){
+    const pattern='\\b'+alias.replace(/[&]/g,'\\&').replace(/ /g,'\\s+')+'\\b';
+    if(new RegExp(pattern,'i').test(raw))return symbol;
+  }
+  const tokens=raw.split(/\s+/).filter(Boolean);
+  const candidates=tokens.filter(t=>!STOP_WORDS.has(t)&&(KNOWN_SYMBOLS.has(t)||/^[A-Z]{2,15}$/.test(t)));
+  if(candidates.length===1)return candidates[0];
+  return candidates.find(t=>/^[A-Z]{2,15}$/.test(t))||'';
+}
+function detectIntent(query=''){
+  const q=String(query).toLowerCase().trim();
+  if(!q)return'GENERAL_MARKET';
+  if(/^(hi|hello|hey|ho|namaste|good morning|good afternoon|good evening|నమస్తే|హాయ్|హలో|నమస్కారం|नमस्ते|हाय|नमस्कार|வணக்கம்|ನಮಸ್ಕಾರ|നമസ്കാരം|ਸਤ ਸ੍ਰੀ ਅਕਾਲ|নমস্কার)[!,. ]*$/.test(q))return'GREETING';
+  if(/\b(nuvvu?|nuv|meeru|meer|nuvvu)?\s*(ai|artificial intelligence)\s*(va|vavaa|vha|ho|నా|వా)\b/.test(q)||/\b(who are you|what are you|are you an? ai|are you ai|tell me about yourself)\b/.test(q)||/(మీరు|నువ్వు|నువ్).*(ai|కృత్రిమ మేధస్సు)/.test(q))return'IDENTITY';
+  if(/\b(tomorrow|today|now|next|open|close|opening|closing|market hours|market open|market closed|trading session|pre[- ]?open|market timing|market time|రేపు|ఈరోజు|మార్కెట్|நாளை|இன்று|சந்தை|कल|आज|बाज़ार|उद्या|बाजार|നാളെ|ഇന്ന്|ಮಾರುಕಟ್ಟೆ|ನಾಳೆ|ਕੱਲ੍ਹ|ਅੱਜ|বাজার|କାଲି|ଆଜି|বজাৰ|কালি|کل|بازار)\b/.test(q))return'MARKET_STATUS';
+  if(/\b(price|share price|stock price|ltp|quote|cmp|current value|current price|ధర|షేర్ ధర|விலை|பங்கு விலை|कीमत|शेयर भाव|किंमत|মূল্য|দাম|দর|ભાવ|ಬೆಲೆ|ಷೇರು ಬೆಲೆ|വില|ഓഹരി വില|ਕੀਮਤ|ਸ਼ੇਅਰ ਕੀਮਤ|ମୂଲ୍ୟ|ଶେୟାର ମୂଲ୍ୟ|قیمت|شیئر قیمت)\b/.test(q))return'QUOTE';
+  if(/\b(rsi|macd|sma|ema|vwap|technical|trend|support|resistance|breakout|candlestick|moving average|chart|technical analysis)\b/.test(q))return'TECHNICAL_ANALYSIS';
+  if(/\b(financial|fundamental|pe|p\/e|profit|revenue|eps|debt|cash flow|balance sheet|valuation|growth|margin)\b/.test(q))return'FUNDAMENTAL_ANALYSIS';
+  if(/\b(risk|volatility|drawdown|safe|danger|downside)\b/.test(q))return'RISK_ANALYSIS';
+  if(/\b(portfolio|sip|allocation|diversif|holdings)\b/.test(q))return'PORTFOLIO';
+  if(/\b(stock|share|company|nse|bse|symbol|listed)\b/.test(q)||extractSymbol(q))return'MARKET_SEARCH';
+  return'GENERAL_MARKET';
+}
 function quote(prefix,symbol,suffix){return prefix+symbol+suffix;}
 function makeReply(greet,marketStatus,quotePrefix,quoteSuffix,general,needSymbol){return{greet,marketStatus,quote:function(symbol){return quote(quotePrefix,symbol,quoteSuffix);},general,needSymbol};}
 const REPLIES={
@@ -21,13 +45,31 @@ const REPLIES={
  as:makeReply('নমস্কাৰ! মই Tara AI। মাৰ্কেট ইণ্টেলিজেন্স, কোম্পানী ৰিচাৰ্চ আৰু বিত্তীয় শিক্ষাত সহায় কৰিবলৈ সাজু।','NSE/BSE-ৰ নিয়মীয়া ইকুইটি ট্ৰেডিং সাধাৰণতে 09:15–15:30 IST হয়। লাইভ অৱস্থাৰ বাবে যাচাইকৃত ফীড প্ৰয়োজন।','', ' মই চিনাক্ত কৰিছোঁ। প্ৰকৃত বৰ্তমান মূল্যৰ বাবে যাচাইকৃত লাইভ মাৰ্কেট-ডাটা ফীড প্ৰয়োজন।','আপোনাৰ মাৰ্কেট প্ৰশ্নটো বুজিছোঁ। কোম্পানী-নিৰ্দিষ্ট বিশ্লেষণৰ বাবে ছিম্বল বা কোম্পানীৰ নাম দিয়ক।','কোম্পানীৰ নাম বা NSE/BSE ছিম্বল দিয়ক। উদাহৰণ: TCS, TATAMOTORS, RELIANCE, INFY.'),
  ur:makeReply('السلام علیکم! میں Tara AI ہوں۔ مارکیٹ انٹیلیجنس، کمپنی ریسرچ اور مالی تعلیم میں مدد کے لیے تیار ہوں۔','NSE/BSE کی باقاعدہ ایکویٹی ٹریڈنگ عام طور پر 09:15–15:30 IST ہوتی ہے۔ لائیو اسٹیٹس کے لیے تصدیق شدہ فیڈ ضروری ہے۔','', ' کو میں نے شناخت کیا ہے۔ حقیقی موجودہ قیمت کے لیے تصدیق شدہ لائیو مارکیٹ ڈیٹا فیڈ ضروری ہے۔','میں نے آپ کا مارکیٹ سوال سمجھ لیا۔ کمپنی مخصوص تجزیے کے لیے سمبل یا کمپنی کا نام دیں۔','کمپنی کا نام یا NSE/BSE سمبل دیں۔ مثال: TCS, TATAMOTORS, RELIANCE, INFY.'),
  gom:makeReply('नमस्कार! हांव Tara AI. मार्केट इंटेलिजन्स, कंपनी रिसर्च आनी फायनान्स शिक्षणाक मदत करपाक तयार आसा.','NSE/BSE नियमित इक्विटी ट्रेडिंग साधारण 09:15–15:30 IST आसता. लाईव्ह स्थितीक खात्री केल्लो फीड जाय.','', ' हांव ओळखला. खरी सद्याची किंमत दाखोवपाक खात्री केल्लो लाईव्ह मार्केट-डेटा फीड जाय.','तुमचो मार्केट प्रस्न समजला. कंपनी-विशिष्ट विश्लेषणाखातीर सिंबल वा कंपनीचें नांव दियात.','कंपनीचें नांव वा NSE/BSE सिंबल दियात. उदाहरण: TCS, TATAMOTORS, RELIANCE, INFY.'),
- ne:makeReply('नमस्ते! म Tara AI हुँ। बजार बुद्धिमत्ता, कम्पनी अनुसन्धान र वित्तीय शिक्षामा सहयोग गर्न तयार छु।','NSE/BSE को नियमित इक्विटी ट्रेडिङ सामान्यतया 09:15–15:30 IST हुन्छ। लाइभ स्थितिका लागि प्रमाणित फीड आवश्यक हुन्छ।','', ' लाई मैले पहिचान गरेको छु। वास्तविक हालको मूल्यका लागि प्रमाणित लाइभ मार्केट-डाटा फीड आवश्यक छ।','तपाईंको बजार प्रश्न बुझें। कम्पनी-विशिष्ट विश्लेषणका लागि सिम्बल वा कम्पनीको नाम दिनुहोस्।','कम्पनीको नाम वा NSE/BSE सिम्बल दिनुहोस्। उदाहरण: TCS, TATAMOTORS, RELIANCE, INFY.')
+ ne:makeReply('नमस्ते! म Tara AI हुँ। बजार बुद्धिमत्ता, कम्पनी अनुसन्धान र वित्तीय शिक्षामा सहयोग गर्न तयार छु।','NSE/BSE को नियमित इक्विटी ट्रेडिङ सामान्यतया 09:15–15:30 IST हुन्छ। लाइभ स्थितिका लागि प्रमाणित फीड आवश्यक हुन्छ।','', ' लाई मैले पहिचान गरेको छु। वास्तविक हालको मूल्यका लागि प्रमाणित लाइभ मार्केट-डाटा फीड आवश्यक हुन्छ।','तपाईंको बजार प्रश्न बुझें। कम्पनी-विशिष्ट विश्लेषणका लागि सिम्बल वा कम्पनीको नाम दिनुहोस्।','कम्पनीको नाम वा NSE/BSE सिम्बल दिनुहोस्। उदाहरण: TCS, TATAMOTORS, RELIANCE, INFY.')
 };
-
+const IDENTITY_REPLIES={
+ en:"I'm Tara AI, your intelligent market companion. I can help with Indian market intelligence, company research, finance education and verified-data analysis. I do not invent live prices or facts.",
+ hi:'मैं Tara AI हूँ — आपका intelligent market companion. मैं भारतीय मार्केट इंटेलिजेंस, कंपनी रिसर्च, वित्तीय शिक्षा और सत्यापित डेटा विश्लेषण में मदद करती हूँ। मैं लाइव कीमतें या तथ्य गढ़ती नहीं हूँ।',
+ te:'నేను Tara AI — మీ intelligent market companion. భారతీయ మార్కెట్ ఇంటెలిజెన్స్, కంపెనీ రీసెర్చ్, finance education మరియు verified-data analysisలో నేను సహాయం చేస్తాను. నేను live prices లేదా facts ను ఊహించి చెప్పను.',
+ mr:'मी Tara AI — तुमची intelligent market companion आहे. भारतीय मार्केट इंटेलिजन्स, कंपनी रिसर्च, आर्थिक शिक्षण आणि सत्यापित डेटा विश्लेषणात मदत करते. मी लाइव्ह किंमती किंवा तथ्ये बनवत नाही.',
+ ta:'நான் Tara AI — உங்கள் intelligent market companion. இந்திய சந்தை நுண்ணறிவு, நிறுவன ஆய்வு, நிதிக் கல்வி மற்றும் verified-data analysis-ல் உதவுகிறேன். நான் live prices அல்லது facts-ஐ உருவாக்கமாட்டேன்.',
+ bn:'আমি Tara AI — আপনার intelligent market companion. ভারতীয় বাজারের তথ্য, কোম্পানি গবেষণা, আর্থিক শিক্ষা এবং যাচাইকৃত ডেটা বিশ্লেষণে সাহায্য করি। আমি লাইভ দাম বা তথ্য বানিয়ে বলি না।',
+ gu:'હું Tara AI — તમારું intelligent market companion. ભારતીય માર્કેટ ઇન્ટેલિજન્સ, કંપની રિસર્ચ, નાણાકીય શિક્ષણ અને ચકાસાયેલ ડેટા વિશ્લેષણમાં મદદ કરું છું. હું લાઇવ કિંમતો અથવા તથ્યો બનાવતી નથી.',
+ kn:'ನಾನು Tara AI — ನಿಮ್ಮ intelligent market companion. ಭಾರತೀಯ ಮಾರುಕಟ್ಟೆ ಮಾಹಿತಿ, ಕಂಪನಿ ಸಂಶೋಧನೆ, ಹಣಕಾಸು ಶಿಕ್ಷಣ ಮತ್ತು ಪರಿಶೀಲಿತ ಡೇಟಾ ವಿಶ್ಲೇಷಣದಲ್ಲಿ ಸಹಾಯ ಮಾಡುತ್ತೇನೆ. ನಾನು ಲೈವ್ ಬೆಲೆಗಳು ಅಥವಾ ಮಾಹಿತಿಯನ್ನು ಕಲ್ಪಿಸಿ ಹೇಳುವುದಿಲ್ಲ.',
+ ml:'ഞാൻ Tara AI — നിങ്ങളുടെ intelligent market companion. ഇന്ത്യൻ മാർക്കറ്റ് ഇന്റലിജൻസ്, കമ്പനി റിസർച്ച്, സാമ്പത്തിക വിദ്യാഭ്യാസം, പരിശോധിച്ച ഡാറ്റാ വിശകലനം എന്നിവയിൽ സഹായിക്കുന്നു. ഞാൻ live prices അല്ലെങ്കിൽ facts കെട്ടിച്ചമയ്ക്കില്ല.',
+ pa:'ਮੈਂ Tara AI ਹਾਂ — ਤੁਹਾਡਾ intelligent market companion. ਭਾਰਤੀ ਮਾਰਕੀਟ ਇੰਟੈਲੀਜੈਂਸ, ਕੰਪਨੀ ਰਿਸਰਚ, ਵਿੱਤੀ ਸਿੱਖਿਆ ਅਤੇ ਪ੍ਰਮਾਣਿਤ ਡਾਟਾ ਵਿਸ਼ਲੇਸ਼ਣ ਵਿੱਚ ਮਦਦ ਕਰਦੀ ਹਾਂ। ਮੈਂ ਲਾਈਵ ਕੀਮਤਾਂ ਜਾਂ ਤੱਥ ਨਹੀਂ ਘੜਦੀ।',
+ or:'ମୁଁ Tara AI — ଆପଣଙ୍କର intelligent market companion। ଭାରତୀୟ ମାର୍କେଟ ଇଣ୍ଟେଲିଜେନ୍ସ, କମ୍ପାନୀ ରିସର୍ଚ୍ଚ, ଆର୍ଥିକ ଶିକ୍ଷା ଏବଂ ଯାଞ୍ଚିତ ଡାଟା ବିଶ୍ଳେଷଣରେ ସହାୟତା କରେ। ମୁଁ ଲାଇଭ ମୂଲ୍ୟ କିମ୍ବା ତଥ୍ୟ ଗଢ଼େ ନାହିଁ।',
+ as:'মই Tara AI — আপোনাৰ intelligent market companion। ভাৰতীয় মাৰ্কেট ইণ্টেলিজেন্স, কোম্পানী ৰিচাৰ্চ, বিত্তীয় শিক্ষা আৰু যাচাইকৃত ডাটা বিশ্লেষণত সহায় কৰোঁ। মই লাইভ মূল্য বা তথ্য বনাই নকওঁ।',
+ ur:'میں Tara AI ہوں — آپ کی intelligent market companion۔ میں بھارتی مارکیٹ انٹیلیجنس، کمپنی ریسرچ، مالی تعلیم اور تصدیق شدہ ڈیٹا تجزیے میں مدد کرتی ہوں۔ میں لائیو قیمتیں یا حقائق گھڑ کر نہیں بتاتی۔',
+ gom:'हांव Tara AI — तुमची intelligent market companion. भारतीय मार्केट इंटेलिजन्स, कंपनी रिसर्च, फायनान्स शिक्षण आनी खात्री केल्ल्या डेटा विश्लेषणांत हांव मदत करता. हांव लाईव्ह किंमती वा तथ्यां घडयना.',
+ ne:'म Tara AI हुँ — तपाईंको intelligent market companion। भारतीय बजार बुद्धिमत्ता, कम्पनी अनुसन्धान, वित्तीय शिक्षा र प्रमाणित डेटा विश्लेषणमा सहयोग गर्छु। म लाइभ मूल्य वा तथ्य बनाउँदिन।'
+};
 function nativeReply(intent,symbol='',language='en'){
-  const replies=REPLIES[normalizeLanguage(language)]||REPLIES.en;
+  const lang=normalizeLanguage(language);
+  const replies=REPLIES[lang]||REPLIES.en;
   switch(intent){
     case 'GREETING': return replies.greet;
+    case 'IDENTITY': return IDENTITY_REPLIES[lang]||IDENTITY_REPLIES.en;
     case 'MARKET_STATUS': return replies.marketStatus;
     case 'QUOTE':
     case 'MARKET_SEARCH':
