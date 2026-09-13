@@ -10,6 +10,7 @@ const { registerCompany360Routes } = require('./company-360-routes');
 const { registerLiveMarketRoutes } = require('./live-market-routes');
 const { registerMarketHistoryRoutes } = require('./market-history-routes');
 const { registerAIChatRoutes } = require('./ai-chat-routes');
+const { providerStatus, targetStatus, analyze: analyzeTara } = require('./tara-intelligence-engine');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -27,6 +28,8 @@ registerAuthRoutes(app); registerCompanyRoutes(app); registerCompanyIntelligence
 let verifiedMarketData={nifty:null,equities:[]}; function validateMarketDataset(d){return !!d&&Array.isArray(d.equities);}
 app.get('/api/health',(req,res)=>res.json({success:true,service:'tara-ai',status:'ok',release:RELEASE,time:new Date().toISOString()}));
 app.get('/api/security-status',(req,res)=>res.json({success:true,security:{headers:true,rateLimiting:true,strictBodyLimits:true,poweredByHidden:true,productionHsts:isProduction,secretsInEnvironmentOnly:true,microphonePolicy:'self'},release:RELEASE,note:'Security controls are enabled; independent penetration testing is still required before production launch.'}));
+app.get('/api/tara-intelligence/status',(req,res)=>res.json({success:true,engine:'Tara Intelligence Engine',release:RELEASE,providers:providerStatus(),targets:targetStatus(),policy:'verified-data-only'}));
+app.post('/api/tara-intelligence/analyze',(req,res)=>{try{const symbol=String(req.body?.symbol||'').trim();if(!symbol)return res.status(400).json({success:false,error:'Company symbol is required.'});return res.json(analyzeTara(req.body));}catch(e){return res.status(400).json({success:false,error:e.message});}});
 app.get('/api/market-data',(req,res)=>validateMarketDataset(verifiedMarketData)?res.json({success:true,timestamp:new Date().toISOString(),data:verifiedMarketData}):res.status(500).json({success:false,error:'Market data validation failed'}));
 app.post('/api/analyze',(req,res)=>{const query=String(req.body?.query||'').trim().slice(0,500);if(!query)return res.status(400).json({success:false,error:'Query is required'});res.json({success:true,aiName:'Tara AI',found:false,text:`Tara AI is ready to research "${query}". Source-backed company intelligence is served through the company API.`});});
 app.use('/api',(req,res)=>res.status(404).json({success:false,error:'Tara AI API endpoint not found.'}));
