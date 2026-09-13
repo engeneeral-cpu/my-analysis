@@ -92,6 +92,11 @@ jobs:
       - name: Historical OHLCV contract verification
         run: npm run test:historical-ohlcv
 
+      - name: Historical OHLCV endpoint integration verification
+        env:
+          TARA_BASE_URL: http://127.0.0.1:4000
+        run: npm run test:historical-ohlcv:integration
+
       - name: Historical OHLCV pending-schema smoke check
         env:
           TARA_BASE_URL: http://127.0.0.1:4000
