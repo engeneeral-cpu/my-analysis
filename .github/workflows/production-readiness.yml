@@ -89,6 +89,17 @@ jobs:
           TARA_BASE_URL: http://127.0.0.1:4000
         run: npm run test:company-360:integration
 
+      - name: Historical OHLCV contract verification
+        run: npm run test:historical-ohlcv
+
+      - name: Historical OHLCV pending-schema smoke check
+        env:
+          TARA_BASE_URL: http://127.0.0.1:4000
+        run: |
+          curl --fail --silent --show-error \
+            "$TARA_BASE_URL/api/v1/company/RELIANCE/history?range=1Y&interval=1d" > /tmp/tara-history.json
+          node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('/tmp/tara-history.json','utf8')); if(d.success!==true || d.symbol!=='RELIANCE' || !Array.isArray(d.candles) || !d.metadata || typeof d.metadata.verified!=='boolean') process.exit(1); if(!d.metadata.verified && d.metadata.notice!=='Historical exchange data pending ingestion') process.exit(1); if(d.metadata.verified && d.candles.some(c=>c.high<Math.max(c.open,c.close,c.low)||c.low>Math.min(c.open,c.close,c.high))) process.exit(1); console.log('Historical OHLCV schema OK:', d.metadata.verified?'verified':'pending', d.candles.length);"
+
       - name: Full production readiness suite
         env:
           TARA_BASE_URL: http://127.0.0.1:4000
