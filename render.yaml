@@ -15,6 +15,10 @@ services:
       # Do not replace this with a scraped or unverified BSE website URL.
       - key: BSE_SECURITY_MASTER_URL
         sync: false
+      - key: BSE_SECURITY_MASTER_LICENSE_STATUS
+        sync: false
+      - key: BSE_CORPORATE_DATA_URL
+        sync: false
       - key: MARKET_DATA_API_URL
         sync: false
       - key: MARKET_DATA_API_KEY
@@ -30,6 +34,8 @@ services:
       - key: MARKET_DATA_REDISTRIBUTION_PERMISSION
         sync: false
       - key: MARKET_DATA_ATTRIBUTION_REQUIRED
+        sync: false
+      - key: MARKET_DATA_STREAM_PROVIDER_NAME
         sync: false
       - key: MARKET_HISTORY_API_URL
         sync: false
@@ -48,4 +54,14 @@ services:
       - key: MARKET_HISTORY_ATTRIBUTION_REQUIRED
         sync: false
       - key: MARKET_HISTORY_INSTRUMENT_KEY_TEMPLATE
+        sync: false
+      - key: FINANCIAL_DATA_PROVIDER_NAME
+        sync: false
+      - key: NEWS_PROVIDER_NAME
+        sync: false
+      - key: NEWS_PROVIDER_API_URL
+        sync: false
+      - key: NEWS_PROVIDER_API_KEY
+        sync: false
+      - key: TARA_MODEL_PROVIDER_NAME
         sync: false
