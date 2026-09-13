@@ -55,6 +55,27 @@ services:
         sync: false
       - key: MARKET_HISTORY_INSTRUMENT_KEY_TEMPLATE
         sync: false
+      # Authorized historical storage. Leave unconfigured until licensed exchange data is connected.
+      - key: TIMESCALE_DB_URL
+        sync: false
+      - key: POSTGRES_URL
+        sync: false
+      - key: TIMESCALE_DB_SSL
+        sync: false
+      - key: POSTGRES_SSL
+        sync: false
+      - key: HISTORICAL_STORAGE_LICENSE_STATUS
+        sync: false
+      - key: HISTORICAL_STORAGE_DISPLAY_PERMISSION
+        sync: false
+      - key: HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION
+        sync: false
+      - key: HISTORICAL_STORAGE_SOURCE
+        sync: false
+      - key: HISTORICAL_STORAGE_EXCHANGE
+        sync: false
+      - key: HISTORICAL_STORAGE_TABLE
+        sync: false
       - key: FINANCIAL_DATA_PROVIDER_NAME
         sync: false
       - key: NEWS_PROVIDER_NAME
