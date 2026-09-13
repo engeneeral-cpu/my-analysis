@@ -1,0 +1,45 @@
+name: Tara AI Daily Bhavcopy Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Trading date YYYY-MM-DD (optional; defaults to previous UTC day)'
+        required: false
+        type: string
+  schedule:
+    # 20:30 IST = 15:00 UTC. Weekdays only; the script also skips weekends.
+    - cron: '0 15 * * 1-5'
+
+jobs:
+  bhavcopy-sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install --ignore-scripts
+
+      - name: Validate official NSE Bhavcopy source
+        env:
+          BHAVCOPY_DRY_RUN: 'true'
+          TARA_BHAVCOPY_DATE: ${{ inputs.date }}
+        run: |
+          if [ -n "$TARA_BHAVCOPY_DATE" ]; then
+            node scripts/bhavcopy-ingester.js --date "$TARA_BHAVCOPY_DATE" --dry-run --quiet
+          else
+            node scripts/bhavcopy-ingester.js --dry-run --quiet
+          fi
+
+      - name: Explain gated production ingestion
+        run: |
+          echo 'Source validation completed.'
+          echo 'Website/database writes remain disabled unless the operator explicitly configures the applicable exchange data and redistribution permissions.'
