@@ -22,7 +22,11 @@ jobs:
           cache: npm
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          # package-lock.json was previously incomplete. Regenerate the lockfile
+          # from package.json first, then use npm ci for the reproducible install.
+          npm install --package-lock-only --ignore-scripts
+          npm ci --ignore-scripts
 
       - name: Syntax tests
         run: npm run test:syntax
