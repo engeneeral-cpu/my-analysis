@@ -31,21 +31,43 @@ function emptyCorporateActions() {
   return { data: [], status: { verified: false, as_of_date: null, source: null }, notice: 'No active or historical corporate actions reported to exchange' };
 }
 
+function emptyManagement() {
+  return {
+    data: { board_of_directors: [], key_executives: [] },
+    metadata: { source: null, circular_ref: null, as_of_date: null, verified: false },
+    notice: 'Awaiting official management disclosure from exchange'
+  };
+}
+
 function buildFinancials(provider) {
   if (!provider.verified || !Array.isArray(provider.financials) || provider.financials.length === 0) return emptyFinancials();
-  return { data: provider.financials, status: { verified: true, as_of_date: provider.as_of_date, source: 'NSE_DISCLOSURES' }, notice: null };
+  return { data: provider.financials, status: { verified: true, as_of_date: provider.as_of_date, source: provider.source }, notice: null };
 }
 
 function buildShareholding(provider) {
   if (!provider.verified || !provider.shareholding) return emptyShareholding();
-  return { data: provider.shareholding, status: { verified: true, as_of_date: provider.as_of_date, source: 'NSE_DISCLOSURES' }, notice: null };
+  return { data: provider.shareholding, status: { verified: true, as_of_date: provider.as_of_date, source: provider.source }, notice: null };
 }
 
 function buildCorporateActions(provider) {
   if (!provider.verified || !Array.isArray(provider.corporate_actions) || provider.corporate_actions.length === 0) return emptyCorporateActions();
   return {
     data: provider.corporate_actions,
-    status: { verified: true, as_of_date: provider.as_of_date, source: 'NSE_DISCLOSURES' },
+    status: { verified: true, as_of_date: provider.as_of_date, source: provider.source },
+    notice: null
+  };
+}
+
+function buildManagement(provider) {
+  if (!provider.management || provider.management_source === null || !provider.management_as_of_date) return emptyManagement();
+  return {
+    data: provider.management,
+    metadata: {
+      source: provider.management_source,
+      circular_ref: provider.management_circular_ref,
+      as_of_date: provider.management_as_of_date,
+      verified: true
+    },
     notice: null
   };
 }
@@ -65,10 +87,11 @@ async function getCompany360(symbol) {
   const generatedAt = new Date().toISOString();
   const provider = await loadCompany360Data(symbol);
   const identitySource = company.verifiedSources.join(' + ') || 'Verified company master';
+  const management = buildManagement(provider);
 
   const result = {
     success: true,
-    schemaVersion: '1.2.0',
+    schemaVersion: '1.3.0',
     symbol,
     generatedAt,
     data_policy: 'strict-zero-fake-data',
@@ -94,13 +117,14 @@ async function getCompany360(symbol) {
     financials: buildFinancials(provider),
     shareholding: buildShareholding(provider),
     corporate_actions: buildCorporateActions(provider),
-    management: { data: [], status: { verified: false, as_of_date: null, source: null }, notice: 'Awaiting official exchange disclosure' },
+    management,
     disclosures_news: { data: [], status: { verified: false, as_of_date: null, source: null }, notice: 'Awaiting official exchange disclosure' },
     sources: {
       verified_universe: universe.sources,
-      financials: provider.verified ? 'NSE_DISCLOSURES' : null,
-      shareholding: provider.verified ? 'NSE_DISCLOSURES' : null,
-      corporate_actions: provider.verified && provider.corporate_actions.length ? 'NSE_DISCLOSURES' : null
+      financials: provider.verified ? provider.source : null,
+      shareholding: provider.verified ? provider.source : null,
+      corporate_actions: provider.verified && provider.corporate_actions.length ? provider.source : null,
+      management: management.metadata.verified ? management.metadata.source : null
     }
   };
 
@@ -136,5 +160,7 @@ module.exports = {
   buildFinancials,
   buildShareholding,
   buildCorporateActions,
-  emptyCorporateActions
+  emptyCorporateActions,
+  buildManagement,
+  emptyManagement
 };
