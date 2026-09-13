@@ -2,13 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#070a11">
-<meta name="description" content="Market Analysis — source-backed Indian market intelligence powered by Tara"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>Market Analysis — Tara</title><link rel="stylesheet" href="tara.css?v=20260914-brand2">
+<meta name="description" content="Market Analysis — source-backed Indian market intelligence powered by Tara"><link rel="icon" href="/favicon.svg" type="image/svg+xml"><title>Market Analysis — Tara</title><link rel="stylesheet" href="tara.css?v=20260914-search1">
 </head>
 <body>
 <div class="shell">
 <aside><a class="brand-lockup" href="tara.html" aria-label="Market Analysis home"><img src="assets/market-analysis-logo.svg" alt="Market Analysis — Tara AI" style="width:100%;max-width:220px;height:auto;display:block"><span style="display:none"><strong>Market Analysis</strong><small>Intelligent Market Companion</small></span></a><nav><a class="active" href="tara.html">Overview</a><a href="#markets">Markets</a><a href="#research">AI Research</a><a class="tara-nav" href="ai-chat.html">🎙️ Talk to Tara</a><a href="companies.html">Companies</a><a href="#security">Security</a></nav><div class="secure">● Security active<br><small>Zero-trust foundation</small></div></aside>
 <main>
 <header><div><small>MARKET ANALYSIS</small><h2>Understand markets <i>before they move.</i></h2></div><div id="marketStatus" class="market-status closed" role="status" aria-live="polite"><span></span><b>Market Closed</b><small>NSE/BSE hours</small></div><a href="ai-chat.html" class="talk-head">🎙️ Talk to Tara</a><img src="assets/market-analysis-mark.svg" class="header-mark" alt="Market Analysis" width="42" height="42"></header>
+<section class="market-search" aria-label="Search Indian listed companies"><div class="market-search-label"><span>⌕</span><div><strong>Search Companies</strong><small>NSE • BSE • Symbol • Scrip Code • ISIN</small></div></div><form id="marketSearchForm" class="market-search-form" autocomplete="off"><input id="marketSearchInput" type="search" placeholder="Search company or NSE/BSE symbol…" aria-label="Search company or NSE/BSE symbol" autocomplete="off" maxlength="120"><button type="submit" aria-label="Search companies">Search</button></form><div id="marketSearchResults" class="market-search-results" role="listbox" aria-label="Company search results"></div></section>
 <section class="tara-welcome" aria-label="Tara AI welcome"><img src="assets/market-analysis-mark.svg" class="tara-welcome-mark" alt=""><div><strong>Hi! I’m Tara.</strong><p>Your Intelligent Market Companion. How can I help you today?</p></div></section>
 <section class="tara-composer-container" aria-label="Tara universal market search">
 <form id="taraPromptForm" class="tara-composer-box" autocomplete="off">
@@ -28,5 +29,6 @@
 <footer>Market Analysis · powered by Tara · informational market intelligence · no guaranteed investment returns.</footer>
 </main></div>
 <a class="floating-tara" href="ai-chat.html" aria-label="Open Tara voice assistant"><span>🎙️</span><strong>Talk to Tara</strong><small>Chat + Voice</small></a>
+<script src="market-search.js?v=20260914-1"></script>
 <script src="tara-composer.js?v=20260914-brand2"></script>
 </body></html>
