@@ -1,0 +1,60 @@
+name: Tara AI Production Readiness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  production-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Syntax tests
+        run: npm run test:syntax
+
+      - name: Dependency audit (high/critical gate)
+        run: npm audit --audit-level=high
+
+      - name: Start Tara AI
+        env:
+          NODE_ENV: test
+          ALLOWED_ORIGINS: http://127.0.0.1:4000
+          PORT: 4000
+        run: |
+          nohup npm start > /tmp/tara-ai.log 2>&1 &
+          echo $! > /tmp/tara-ai.pid
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4000/api/health > /tmp/tara-health.json; then
+              cat /tmp/tara-health.json
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:4000/api/health
+
+      - name: Full production readiness suite
+        env:
+          TARA_BASE_URL: http://127.0.0.1:4000
+        run: npm run test:production
+
+      - name: Upload server log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tara-ai-production-readiness-log
+          path: /tmp/tara-ai.log
