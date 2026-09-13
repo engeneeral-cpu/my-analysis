@@ -109,10 +109,19 @@ async function resolveInstrumentKey(symbol) {
   throw new Error(`No NSE ISIN/instrument key found for ${symbol}`);
 }
 
-async function fetchProviderRows(symbol, fromDate, toDate) {
+function configuredIndexKeys() {
+  try {
+    const raw = JSON.parse(process.env.MARKET_HISTORY_INDEX_KEYS_JSON || '{}');
+    return raw && typeof raw === 'object' ? raw : {};
+  } catch {
+    return {};
+  }
+}
+
+async function fetchProviderRows(symbol, fromDate, toDate, instrumentKeyOverride = null) {
   const type = String(process.env.MARKET_HISTORY_PROVIDER_TYPE || '').toLowerCase();
   if (type === 'upstox-v3') {
-    const instrumentKey = await resolveInstrumentKey(symbol);
+    const instrumentKey = instrumentKeyOverride || await resolveInstrumentKey(symbol);
     const rows = [];
     let cursor = new Date(toDate);
     const floor = fromDate ? new Date(fromDate) : new Date('2000-01-01T00:00:00Z');
@@ -135,7 +144,7 @@ async function fetchProviderRows(symbol, fromDate, toDate) {
   const fromParam = process.env.MARKET_HISTORY_FROM_PARAM || 'from';
   const toParam = process.env.MARKET_HISTORY_TO_PARAM || 'to';
   const intervalParam = process.env.MARKET_HISTORY_INTERVAL_PARAM || 'interval';
-  url.searchParams.set(symbolParam, symbol);
+  url.searchParams.set(symbolParam, instrumentKeyOverride || symbol);
   if (fromDate) url.searchParams.set(fromParam, fromDate);
   url.searchParams.set(toParam, toDate);
   url.searchParams.set(intervalParam, '1d');
@@ -152,7 +161,30 @@ function uniqueRows(rows) {
 
 function registerMarketHistoryRoutes(app) {
   app.get('/api/market-history/:symbol/previous', async (req, res) => historyHandler(req, res, true));
+  app.get('/api/market-history/index/:name/previous', async (req, res) => indexPreviousHandler(req, res));
   app.get('/api/market-history/:symbol', historyHandler);
+}
+
+async function indexPreviousHandler(req, res) {
+  const name = String(req.params.name || '').toUpperCase().replace(/[^A-Z0-9._ -]/g, '').trim();
+  const keys = configuredIndexKeys();
+  const instrumentKey = keys[name] || keys[name.replace(/\s+/g, '_')];
+  if (!name) return res.status(400).json({ success: false, error: 'Invalid index name' });
+
+  try {
+    const rows = uniqueRows(await fetchProviderRows(name, daysAgo(14), isoDate(new Date()), instrumentKey || null));
+    const completedRows = rows.filter(r => String(r.date).slice(0, 10) < indiaToday());
+    if (!completedRows.length) throw new Error(`No completed closing value is available for ${name}`);
+    const latest = completedRows[completedRows.length - 1];
+    const previous = completedRows.length > 1 ? completedRows[completedRows.length - 2] : null;
+    const change = previous?.close != null ? latest.close - previous.close : null;
+    const percentChange = previous?.close ? (change / previous.close) * 100 : null;
+    res.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=900');
+    return res.json({ success: true, historical: true, index: name, closing: latest, previousClose: previous?.close ?? null, change, percentChange, source: process.env.MARKET_HISTORY_PROVIDER_NAME || 'Configured historical provider', asOf: new Date().toISOString(), compliance: complianceMetadata() });
+  } catch (error) {
+    const status = error.message.includes('not configured') ? 503 : 502;
+    return res.status(status).json({ success: false, historical: false, index: name, error: error.message, compliance: complianceMetadata() });
+  }
 }
 
 async function historyHandler(req, res, previousOnly = false) {
@@ -165,7 +197,6 @@ async function historyHandler(req, res, previousOnly = false) {
     const fromDate = range === 'all' ? null : startDateFor(range);
     const toDate = isoDate(new Date());
     const rows = uniqueRows(await fetchProviderRows(symbol, fromDate, toDate));
-    // Historical/EOD views must contain completed sessions only. Live/intraday data belongs to the live endpoint.
     const completedRows = rows.filter(r => String(r.date).slice(0, 10) < indiaToday());
     if (!completedRows.length) throw new Error('Historical provider returned no completed trading-session rows');
 
