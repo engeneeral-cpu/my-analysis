@@ -1,33 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 230" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 300" role="img" aria-labelledby="title desc">
   <title id="title">Market Analysis</title>
-  <desc id="desc">Premium Market Analysis logo with a rising market intelligence mark and Tara AI companion badge.</desc>
+  <desc id="desc">Premium financial intelligence logo with a geometric M, ascending market bars, breakout arrow and Tara AI badge.</desc>
   <defs>
-    <linearGradient id="brand" x1="0" y1="1" x2="1" y2="0">
-      <stop offset="0" stop-color="#126cff"/><stop offset=".52" stop-color="#10b9ff"/><stop offset="1" stop-color="#19e6a8"/>
-    </linearGradient>
-    <linearGradient id="text" x1="0" y1="0" x2="1" y2="0">
-      <stop stop-color="#ffffff"/><stop offset="1" stop-color="#cbd7e8"/>
-    </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <radialGradient id="bg" cx="38%" cy="42%" r="78%"><stop offset="0" stop-color="#151b25"/><stop offset=".58" stop-color="#0b0e14"/><stop offset="1" stop-color="#020204"/></radialGradient>
+    <linearGradient id="blueM" x1="22" y1="24" x2="170" y2="190" gradientUnits="userSpaceOnUse"><stop stop-color="#0038ff"/><stop offset=".48" stop-color="#002b9c"/><stop offset="1" stop-color="#001040"/></linearGradient>
+    <linearGradient id="mint" x1="28" y1="182" x2="176" y2="34" gradientUnits="userSpaceOnUse"><stop stop-color="#00a86b"/><stop offset=".5" stop-color="#00ffa3"/><stop offset="1" stop-color="#00d2ff"/></linearGradient>
+    <linearGradient id="silver" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#ffffff"/><stop offset="1" stop-color="#b9c4d4"/></linearGradient>
+    <linearGradient id="badgeBorder" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#00d2ff"/><stop offset=".55" stop-color="#00ffa3"/><stop offset="1" stop-color="#00d2ff"/></linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#5e8cff" stop-opacity=".7"/><stop offset=".35" stop-color="#0038ff" stop-opacity=".15"/><stop offset="1" stop-color="#00051d" stop-opacity=".8"/></linearGradient>
+    <filter id="neon" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="softGlow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="12"/></filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="7" stdDeviation="7" flood-color="#000000" flood-opacity=".65"/></filter>
   </defs>
-  <g transform="translate(18 24)">
-    <path d="M18 150V38l72 52 72-52v112" fill="none" stroke="url(#brand)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M48 150v-30h16v30m16 0V96h16v54m16 0V75h16v75m16 0V55h16v95" fill="url(#brand)" opacity=".95"/>
-    <path d="M8 143C67 134 108 98 131 70c17-20 33-33 63-52" fill="none" stroke="url(#brand)" stroke-width="10" stroke-linecap="round" filter="url(#glow)"/>
-    <path d="M185 18l21-4-8 21z" fill="#5bffc9" filter="url(#glow)"/>
+  <rect width="960" height="300" rx="34" fill="url(#bg)"/>
+  <ellipse cx="140" cy="263" rx="92" ry="14" fill="#00ffa3" opacity=".28" filter="url(#softGlow)"/>
+  <ellipse cx="140" cy="263" rx="64" ry="5" fill="#00ffa3" opacity=".3" filter="url(#neon)"/>
+  <g transform="translate(32 42)" filter="url(#shadow)">
+    <path d="M22 38 L55 55 V194 L22 177 Z" fill="url(#blueM)" stroke="#0a4cff" stroke-opacity=".32" stroke-width="1.5"/>
+    <path d="M55 55 L96 99 L137 55 V151 L96 181 L55 151 Z" fill="#001b63" opacity=".96"/>
+    <path d="M137 55 L170 38 V177 L137 194 Z" fill="url(#blueM)" stroke="#0a4cff" stroke-opacity=".32" stroke-width="1.5"/>
+    <path d="M24 40L54 56V65L29 52V174L24 171Z" fill="url(#bevel)" opacity=".72"/>
+    <path d="M168 40L139 56V65L163 52V174L168 171Z" fill="url(#bevel)" opacity=".72"/>
+    <g fill="url(#mint)" filter="url(#neon)"><rect x="61" y="119" width="10" height="62" rx="2"/><rect x="77" y="101" width="10" height="80" rx="2"/><rect x="93" y="80" width="10" height="101" rx="2"/><rect x="109" y="55" width="10" height="126" rx="2"/></g>
+    <path d="M17 188 C27 148 55 126 88 108 C119 91 144 69 174 46" fill="none" stroke="url(#mint)" stroke-width="11" stroke-linecap="round" filter="url(#neon)"/>
+    <path d="M165 31 L198 38 L185 67 Z" fill="#00ffa3" filter="url(#neon)"/>
+    <path d="M19 188 C25 162 35 149 50 136" fill="none" stroke="#70ffdf" stroke-opacity=".42" stroke-width="2"/>
   </g>
-  <g transform="translate(235 32)">
-    <text x="0" y="62" fill="url(#text)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="52" font-weight="850" letter-spacing="5">MARKET</text>
-    <text x="0" y="112" fill="url(#text)" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="42" font-weight="500" letter-spacing="9">ANALYSIS</text>
-    <text x="0" y="143" fill="#d4deec" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="3">SMARTER DECISIONS</text>
-    <circle cx="174" cy="139" r="3.5" fill="#19e6a8"/>
-    <text x="190" y="143" fill="#d4deec" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="13" font-weight="700" letter-spacing="3">BETTER RETURNS</text>
-    <rect x="0" y="160" width="315" height="2" rx="1" fill="url(#brand)" opacity=".75"/>
-    <g transform="translate(0 176)">
-      <rect width="315" height="42" rx="21" fill="#080e19" stroke="url(#brand)" stroke-width="2"/>
-      <path d="M27 21l5-9 5 9-5 9z" fill="#19e6a8" filter="url(#glow)"/>
-      <text x="50" y="27" fill="#ffffff" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="19" font-weight="800" letter-spacing="4">TARA</text>
-      <text x="118" y="27" fill="#19e6a8" font-family="Inter,Segoe UI,Arial,sans-serif" font-size="19" font-weight="800" letter-spacing="4">AI</text>
+  <g transform="translate(255 49)">
+    <text x="0" y="64" fill="url(#silver)" font-family="Montserrat, Orbitron, Syne, Inter, Segoe UI, Arial, sans-serif" font-size="62" font-weight="900" letter-spacing="5">M</text>
+    <text x="50" y="64" fill="url(#silver)" font-family="Montserrat, Orbitron, Syne, Inter, Segoe UI, Arial, sans-serif" font-size="62" font-weight="900">A</text>
+    <path d="M75 43 L84 55 L66 55 Z" fill="#00ffa3" filter="url(#neon)"/>
+    <text x="101" y="64" fill="url(#silver)" font-family="Montserrat, Orbitron, Syne, Inter, Segoe UI, Arial, sans-serif" font-size="62" font-weight="900" letter-spacing="5">RKET</text>
+    <text x="1" y="119" fill="#e6ebf5" font-family="Montserrat, Inter, Segoe UI, Arial, sans-serif" font-size="38" font-weight="500" letter-spacing="13">ANALYSIS</text>
+    <g transform="translate(0 151)">
+      <line x1="0" y1="0" x2="82" y2="0" stroke="#9aa4b2" stroke-opacity=".45"/>
+      <text x="96" y="4" fill="#9aa4b2" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="2.8">SMARTER DECISIONS</text>
+      <text x="249" y="4" fill="#00ffa3" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="13" font-weight="800">•</text>
+      <text x="264" y="4" fill="#9aa4b2" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" letter-spacing="2.8">BETTER RETURNS</text>
+      <line x1="430" y1="0" x2="512" y2="0" stroke="#9aa4b2" stroke-opacity=".45"/>
+    </g>
+    <g transform="translate(0 181)">
+      <line x1="0" y1="22" x2="80" y2="22" stroke="#00ffa3" stroke-opacity=".24"/>
+      <rect x="92" y="0" width="250" height="46" rx="23" fill="#001428" fill-opacity=".62" stroke="url(#badgeBorder)" stroke-width="1.7"/>
+      <text x="116" y="30" fill="#00ffa3" font-size="19" font-family="Arial, sans-serif" font-weight="700" filter="url(#neon)">✦</text>
+      <text x="145" y="30" fill="#ffffff" font-family="Montserrat, Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" letter-spacing="3.5">TARA</text>
+      <text x="214" y="30" fill="#00ffa3" font-family="Montserrat, Inter, Segoe UI, Arial, sans-serif" font-size="17" font-weight="800" letter-spacing="3.5">AI</text>
+      <line x1="354" y1="22" x2="434" y2="22" stroke="#00ffa3" stroke-opacity=".24"/>
     </g>
   </g>
 </svg>
