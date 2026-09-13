@@ -1,5 +1,5 @@
--- Tara AI Historical OHLCV storage contract
--- This schema stores exchange-sourced EOD data only. It does not authorize redistribution.
+-- Market Analysis / Tara AI Historical OHLCV storage contract.
+-- This schema stores exchange-sourced EOD data only. It does not itself authorize redistribution.
 CREATE TABLE IF NOT EXISTS ohlcv_daily (
   exchange VARCHAR(5) NOT NULL,
   symbol VARCHAR(40) NOT NULL,
@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS ohlcv_daily (
   ingested_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY (exchange, symbol, trade_date),
   CONSTRAINT ohlcv_daily_ohlc_valid CHECK (
-    high >= GREATEST(open, high * 0 + low, close)
+    high >= GREATEST(open, low, close)
     AND low <= LEAST(open, high, close)
     AND open >= 0 AND high >= 0 AND low >= 0 AND close >= 0
   )
@@ -31,3 +31,7 @@ CREATE INDEX IF NOT EXISTS idx_ohlcv_daily_isin_date
 
 CREATE INDEX IF NOT EXISTS idx_ohlcv_daily_verified_date
   ON ohlcv_daily (verified, trade_date DESC);
+
+-- TimescaleDB deployment only: run this after the extension is installed.
+-- It converts the daily table into a time-partitioned hypertable without changing the API contract.
+-- SELECT create_hypertable('ohlcv_daily', by_range('trade_date'), if_not_exists => TRUE);
