@@ -1,15 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
-  <title id="title">Market Analysis mark</title>
-  <desc id="desc">M-shaped market intelligence mark with rising bars and trend arrow.</desc>
+  <title id="title">Market Analysis</title>
+  <desc id="desc">Premium M-shaped market intelligence mark with rising bars and an upward trend arrow.</desc>
   <defs>
-    <linearGradient id="g" x1="0" y1="1" x2="1" y2="0">
-      <stop stop-color="#126cff"/><stop offset=".55" stop-color="#10b9ff"/><stop offset="1" stop-color="#19e6a8"/>
-    </linearGradient>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="brand" x1="0" y1="1" x2="1" y2="0"><stop stop-color="#126cff"/><stop offset=".52" stop-color="#10b9ff"/><stop offset="1" stop-color="#19e6a8"/></linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="2.8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
   </defs>
   <rect width="128" height="128" rx="28" fill="#070b13"/>
-  <path d="M22 101V33l32 24 32-24v68" fill="none" stroke="url(#g)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M36 101V82h10v19m10 0V68h10v33m10 0V53h10v48" fill="url(#g)"/>
-  <path d="M16 98C48 94 68 76 83 58c10-12 17-20 29-28" fill="none" stroke="url(#g)" stroke-width="7" stroke-linecap="round" filter="url(#glow)"/>
-  <path d="M103 28l15-3-6 15z" fill="#5bffc9" filter="url(#glow)"/>
+  <path d="M20 102V31l34 25 34-25v71" fill="none" stroke="url(#brand)" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M34 102V80h11v22m11 0V66h11v36m11 0V51h11v51" fill="url(#brand)"/>
+  <path d="M14 99C44 96 66 81 82 62c10-12 18-22 31-33" fill="none" stroke="url(#brand)" stroke-width="7" stroke-linecap="round" filter="url(#glow)"/>
+  <path d="M104 27l15-4-6 16z" fill="#5bffc9" filter="url(#glow)"/>
+  <circle cx="27" cy="104" r="2" fill="#19e6a8" opacity=".8"/>
 </svg>
