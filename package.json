@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test:syntax": "node --check server.js && node --check tara-chat-intent.js && node --check ai-chat-routes.js && node --check company-360-routes.js && node --check company-360-data-service.js && node --check scripts/company-360-contract.js && node --check scripts/management-contract.js && node --check scripts/production-readiness.js",
+    "test:syntax": "node --check server.js && node --check tara-chat-intent.js && node --check scripts/tara-chat-intent-contract.js && node scripts/tara-chat-intent-contract.js && node --check ai-chat-routes.js && node --check company-360-routes.js && node --check company-360-data-service.js && node --check scripts/company-360-contract.js && node --check scripts/management-contract.js && node --check scripts/production-readiness.js",
     "test:company-360": "node scripts/company-360-contract.js && node scripts/management-contract.js",
     "test:management": "node scripts/management-contract.js",
     "test:production": "node scripts/production-readiness.js"
