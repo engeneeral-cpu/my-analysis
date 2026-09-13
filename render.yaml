@@ -11,6 +11,10 @@ services:
         value: production
       - key: ALLOWED_ORIGINS
         value: https://my-analysis-1.onrender.com
+      # BSE source must be an official/licensed/authorized distribution endpoint.
+      # Do not replace this with a scraped or unverified BSE website URL.
+      - key: BSE_SECURITY_MASTER_URL
+        sync: false
       - key: MARKET_DATA_API_URL
         sync: false
       - key: MARKET_DATA_API_KEY
