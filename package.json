@@ -4,7 +4,9 @@
   "description": "Tara AI source-backed Indian market intelligence platform",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:syntax": "node --check server.js && node --check scripts/production-readiness.js",
+    "test:production": "node scripts/production-readiness.js"
   },
   "dependencies": {
     "cors": "^2.8.5",
