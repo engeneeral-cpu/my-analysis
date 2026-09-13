@@ -5,7 +5,23 @@
   const setStatus=(text,type='')=>{status.textContent=text;status.className=`composer-status ${type}`.trim();};
   const resize=()=>{input.style.height='auto';input.style.height=`${Math.min(input.scrollHeight,190)}px`;input.style.overflowY=input.scrollHeight>190?'auto':'hidden';};
   const syncSend=()=>{send.disabled=!input.value.trim();};
-  function updateMarketStatus(){const parts=new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date()),m=Object.fromEntries(parts.map(p=>[p.type,p.value])),mins=Number(m.hour)*60+Number(m.minute),weekend=['Sat','Sun'].includes(m.weekday),open=!weekend&&mins>=555&&mins<930;marketStatus.className=`market-status ${open?'open':'closed'}`;marketStatus.querySelector('b').textContent=open?'Market Open':'Market Closed';marketStatus.querySelector('small').textContent=open?'NSE/BSE · Closes 15:30 IST':weekend?'NSE/BSE · Last session close 15:30 IST · Next session 09:15 IST':mins<555?'NSE/BSE · Opens 09:15 IST · Closes 15:30 IST':'NSE/BSE · Closed at 15:30 IST · Next session 09:15 IST';}
+  function istParts(){const parts=new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',weekday:'short',hour:'2-digit',minute:'2-digit',hour12:false}).formatToParts(new Date());return Object.fromEntries(parts.map(p=>[p.type,p.value]));}
+  function isMarketOpen(){const m=istParts(),mins=Number(m.hour)*60+Number(m.minute),weekend=['Sat','Sun'].includes(m.weekday);return !weekend&&mins>=555&&mins<930;}
+  function updateMarketStatus(){const m=istParts(),mins=Number(m.hour)*60+Number(m.minute),weekend=['Sat','Sun'].includes(m.weekday),open=!weekend&&mins>=555&&mins<930;marketStatus.className=`market-status ${open?'open':'closed'}`;marketStatus.querySelector('b').textContent=open?'Market Open':'Market Closed';marketStatus.querySelector('small').textContent=open?'NSE/BSE · Closes 15:30 IST':weekend?'NSE/BSE · Last session close 15:30 IST · Next session 09:15 IST':mins<555?'NSE/BSE · Opens 09:15 IST · Closes 15:30 IST':'NSE/BSE · Closed at 15:30 IST · Next session 09:15 IST';updateClosedMarketCards(open);}
+  async function updateClosedMarketCards(open=isMarketOpen()){
+    const cards=[...document.querySelectorAll('.market-card[data-market]')];
+    if(open){cards.forEach(card=>{const value=card.querySelector('.market-value'),state=card.querySelector('.market-state');if(value&&!value.dataset.liveClose){value.innerHTML='<span class="market-skeleton"></span>';state.textContent='Connecting to verified live feed…';}});return;}
+    await Promise.all(cards.map(async card=>{
+      const name=card.dataset.market||'',value=card.querySelector('.market-value'),state=card.querySelector('.market-state');if(!value||!state)return;
+      try{
+        const r=await fetch(`/api/market-history/index/${encodeURIComponent(name)}/previous`,{headers:{Accept:'application/json'}}),d=await r.json().catch(()=>({}));
+        if(!r.ok||!d.success||!d.closing||!Number.isFinite(Number(d.closing.close)))throw new Error(d.error||'Verified closing value unavailable');
+        const close=Number(d.closing.close),change=d.change===null?null:Number(d.change),pct=d.percentChange===null?null:Number(d.percentChange),sign=change>0?'+':change<0?'':'',pctText=Number.isFinite(pct)?` ${pct>=0?'+':''}${pct.toFixed(2)}%`:'';
+        value.dataset.liveClose='true';value.textContent=close.toLocaleString('en-IN',{maximumFractionDigits:2,minimumFractionDigits:2});
+        state.innerHTML=`<span class="close-badge">Close</span> ${Number.isFinite(change)?`${sign}${change.toFixed(2)}${pctText}`:'Final verified close'}`;
+      }catch(error){delete value.dataset.liveClose;value.textContent='—';state.innerHTML='<span class="reconnect-state">Closing value unavailable — reconnecting</span>';}
+    }));
+  }
   input.addEventListener('input',()=>{resize();syncSend();const q=input.value.trim();clearTimeout(timer);if(q.length<2){autocomplete.classList.remove('show');return;}timer=setTimeout(()=>companySuggestions(q),180);});
   input.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();if(!send.disabled)form.requestSubmit();}if(e.key==='Escape')autocomplete.classList.remove('show');});
   document.addEventListener('keydown',e=>{const t=e.target,typing=t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable);if((e.key==='/'||((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'))&&!typing){e.preventDefault();input.focus();}});
