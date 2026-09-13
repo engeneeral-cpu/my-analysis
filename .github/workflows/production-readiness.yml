@@ -44,7 +44,6 @@ jobs:
           nohup npm start > /tmp/tara-ai.log 2>&1 &
           SERVER_PID=$!
           echo "$SERVER_PID" > /tmp/tara-ai.pid
-
           echo "Waiting for Tara AI on 127.0.0.1:4000 (PID $SERVER_PID)..."
           READY=0
           for i in $(seq 1 30); do
@@ -53,9 +52,7 @@ jobs:
               cat /tmp/tara-ai.log || true
               exit 1
             fi
-
-            if curl --fail --silent --show-error --connect-timeout 2 --max-time 5 \
-              http://127.0.0.1:4000/api/health > /tmp/tara-health.json; then
+            if curl --fail --silent --show-error --connect-timeout 2 --max-time 5 http://127.0.0.1:4000/api/health > /tmp/tara-health.json; then
               READY=1
               echo "Tara AI is healthy after ${i}s:"
               cat /tmp/tara-health.json
@@ -63,25 +60,18 @@ jobs:
             fi
             sleep 1
           done
-
           if [ "$READY" -ne 1 ]; then
             echo "Tara AI did not become healthy within 30 seconds. Startup log:"
             cat /tmp/tara-ai.log || true
-            echo "Process status:"
-            ps -p "$SERVER_PID" -f || true
             exit 1
           fi
-
-          echo "Final health verification:"
-          curl --fail --silent --show-error --connect-timeout 2 --max-time 5 \
-            http://127.0.0.1:4000/api/health
+          curl --fail --silent --show-error --connect-timeout 2 --max-time 5 http://127.0.0.1:4000/api/health
 
       - name: Company 360 smoke check
         env:
           TARA_BASE_URL: http://127.0.0.1:4000
         run: |
-          curl --fail --silent --show-error \
-            "$TARA_BASE_URL/api/v1/company/RELIANCE/360" > /tmp/tara-company-360.json
+          curl --fail --silent --show-error "$TARA_BASE_URL/api/v1/company/RELIANCE/360" > /tmp/tara-company-360.json
           node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('/tmp/tara-company-360.json','utf8')); if(!d.success || !d.profile || !d.trading_overview || !d.financials || !d.shareholding || !d.corporate_actions || !d.management || !d.disclosures_news) process.exit(1); console.log('Company 360 schema OK:', d.schemaVersion, d.symbol);"
 
       - name: Company 360 consolidated integration verification
@@ -101,9 +91,11 @@ jobs:
         env:
           TARA_BASE_URL: http://127.0.0.1:4000
         run: |
-          curl --fail --silent --show-error \
-            "$TARA_BASE_URL/api/v1/company/RELIANCE/history?range=1Y&interval=1d" > /tmp/tara-history.json
+          curl --fail --silent --show-error "$TARA_BASE_URL/api/v1/company/RELIANCE/history?range=1Y&interval=1d" > /tmp/tara-history.json
           node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('/tmp/tara-history.json','utf8')); if(d.success!==true || d.symbol!=='RELIANCE' || !Array.isArray(d.candles) || !d.metadata || typeof d.metadata.verified!=='boolean') process.exit(1); if(!d.metadata.verified && d.metadata.notice!=='Historical exchange data pending ingestion') process.exit(1); if(d.metadata.verified && d.candles.some(c=>c.high<Math.max(c.open,c.close,c.low)||c.low>Math.min(c.open,c.close,c.high))) process.exit(1); console.log('Historical OHLCV schema OK:', d.metadata.verified?'verified':'pending', d.candles.length);"
+
+      - name: Bhavcopy parser contract verification
+        run: npm run test:bhavcopy
 
       - name: Full production readiness suite
         env:
