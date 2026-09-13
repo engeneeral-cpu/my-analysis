@@ -27,6 +27,10 @@ function emptyShareholding() {
   return { data: null, status: { verified: false, as_of_date: null, source: null }, notice: 'Awaiting quarterly filing ingestion' };
 }
 
+function emptyCorporateActions() {
+  return { data: [], status: { verified: false, as_of_date: null, source: null }, notice: 'No active or historical corporate actions reported to exchange' };
+}
+
 function buildFinancials(provider) {
   if (!provider.verified || !Array.isArray(provider.financials) || provider.financials.length === 0) return emptyFinancials();
   return { data: provider.financials, status: { verified: true, as_of_date: provider.as_of_date, source: 'NSE_DISCLOSURES' }, notice: null };
@@ -35,6 +39,15 @@ function buildFinancials(provider) {
 function buildShareholding(provider) {
   if (!provider.verified || !provider.shareholding) return emptyShareholding();
   return { data: provider.shareholding, status: { verified: true, as_of_date: provider.as_of_date, source: 'NSE_DISCLOSURES' }, notice: null };
+}
+
+function buildCorporateActions(provider) {
+  if (!provider.verified || !Array.isArray(provider.corporate_actions) || provider.corporate_actions.length === 0) return emptyCorporateActions();
+  return {
+    data: provider.corporate_actions,
+    status: { verified: true, as_of_date: provider.as_of_date, source: 'NSE_DISCLOSURES' },
+    notice: null
+  };
 }
 
 async function getCompany360(symbol) {
@@ -55,7 +68,7 @@ async function getCompany360(symbol) {
 
   const result = {
     success: true,
-    schemaVersion: '1.1.0',
+    schemaVersion: '1.2.0',
     symbol,
     generatedAt,
     data_policy: 'strict-zero-fake-data',
@@ -80,10 +93,15 @@ async function getCompany360(symbol) {
     },
     financials: buildFinancials(provider),
     shareholding: buildShareholding(provider),
-    corporate_actions: { data: [], status: { verified: false, as_of_date: null, source: null }, notice: 'Awaiting official exchange disclosure' },
+    corporate_actions: buildCorporateActions(provider),
     management: { data: [], status: { verified: false, as_of_date: null, source: null }, notice: 'Awaiting official exchange disclosure' },
     disclosures_news: { data: [], status: { verified: false, as_of_date: null, source: null }, notice: 'Awaiting official exchange disclosure' },
-    sources: { verified_universe: universe.sources, financials: provider.verified ? 'NSE_DISCLOSURES' : null, shareholding: provider.verified ? 'NSE_DISCLOSURES' : null }
+    sources: {
+      verified_universe: universe.sources,
+      financials: provider.verified ? 'NSE_DISCLOSURES' : null,
+      shareholding: provider.verified ? 'NSE_DISCLOSURES' : null,
+      corporate_actions: provider.verified && provider.corporate_actions.length ? 'NSE_DISCLOSURES' : null
+    }
   };
 
   cache.set(symbol, { at: Date.now(), data: result });
@@ -91,7 +109,13 @@ async function getCompany360(symbol) {
 }
 
 function registerCompany360Routes(app) {
-  app.use('/api/v1/company', rateLimit({ windowMs: 60 * 1000, limit: 60, standardHeaders: 'draft-8', legacyHeaders: false, message: { success: false, error: 'Too many Company 360 requests. Please try again later.' } }));
+  app.use('/api/v1/company', rateLimit({
+    windowMs: 60 * 1000,
+    limit: 60,
+    standardHeaders: 'draft-8',
+    legacyHeaders: false,
+    message: { success: false, error: 'Too many Company 360 requests. Please try again later.' }
+  }));
 
   app.get('/api/v1/company/:symbol/360', async (req, res) => {
     const symbol = sanitizeSymbol(req.params.symbol);
@@ -105,4 +129,12 @@ function registerCompany360Routes(app) {
   });
 }
 
-module.exports = { registerCompany360Routes, getCompany360, sanitizeSymbol, buildFinancials, buildShareholding };
+module.exports = {
+  registerCompany360Routes,
+  getCompany360,
+  sanitizeSymbol,
+  buildFinancials,
+  buildShareholding,
+  buildCorporateActions,
+  emptyCorporateActions
+};
