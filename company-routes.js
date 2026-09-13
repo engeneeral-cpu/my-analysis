@@ -1,4 +1,5 @@
 const https = require('https');
+const { validateMetrics, calculateMultiFactorScore } = require('./tara-intelligence-engine');
 
 const NSE_EQUITY_URL = 'https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv';
 const BSE_SECURITY_MASTER_URL = String(process.env.BSE_SECURITY_MASTER_URL || '').trim();
@@ -10,7 +11,7 @@ let cache = { at: 0, rows: [], sources: [], bseMasterConnected: false, refreshin
 
 function download(url) {
   return new Promise((resolve, reject) => {
-    const req = https.get(url, { headers: {'User-Agent':'TaraAI/1.1 market-intelligence','Accept':'text/csv,application/gzip,application/octet-stream,*/*'} }, response => {
+    const req = https.get(url, { headers: {'User-Agent':'TaraAI/2.1 market-intelligence','Accept':'text/csv,application/gzip,application/octet-stream,*/*'} }, response => {
       if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) { response.resume(); return download(response.headers.location).then(resolve,reject); }
       if (response.statusCode !== 200) { response.resume(); return reject(new Error(`Security master request returned HTTP ${response.statusCode}`)); }
       const chunks=[]; response.on('data',c=>chunks.push(Buffer.from(c))); response.on('end',()=>resolve(Buffer.concat(chunks)));
@@ -51,8 +52,35 @@ async function getUniverse(){
   return refreshUniverse();
 }
 function coverage(universe){const nse=universe.rows.filter(c=>c.exchanges.includes('NSE')).length,bse=universe.rows.filter(c=>c.exchanges.includes('BSE')).length,both=universe.rows.filter(c=>c.exchanges.includes('NSE')&&c.exchanges.includes('BSE')).length;return {nse,bse,both,bseMasterConnected:universe.bseMasterConnected};}
+function searchRank(c,q){
+  const query=String(q||'').trim().toLowerCase(); if(!query)return 0;
+  const fields=[
+    [c.nseSymbol,100],[c.bseCode,100],[c.bseSymbol,100],[c.isin,100],
+    [c.nseSymbol,90],[c.bseSymbol,90],[c.name,80]
+  ];
+  let best=0;
+  for(const [value,exactWeight] of fields){const v=String(value||'').toLowerCase();if(!v)continue;if(v===query)best=Math.max(best,exactWeight);else if(v.startsWith(query))best=Math.max(best,exactWeight-15);else if(v.includes(query))best=Math.max(best,exactWeight-35);}
+  return best;
+}
 function registerCompanyRoutes(app){
   app.get('/api/companies/status',async(req,res)=>{try{const universe=await getUniverse();return res.json({success:true,coverage:coverage(universe),updatedAt:new Date(universe.at).toISOString(),cacheAgeMs:Date.now()-universe.at,cacheMode:Date.now()-universe.at<CACHE_MS?'fresh':'stale-while-revalidate',sources:universe.sources,error:universe.error});}catch(error){return res.status(503).json({success:false,error:'Company master is temporarily unavailable.'});}});
-  app.get('/api/companies',async(req,res)=>{try{const universe=await getUniverse();const q=String(req.query.q||'').trim().toLowerCase(),exchange=String(req.query.exchange||'all').trim().toLowerCase(),limit=Math.min(Math.max(Number(req.query.limit)||100,1),500);const filtered=exchange==='nse'?universe.rows.filter(c=>c.exchanges.includes('NSE')):exchange==='bse'?universe.rows.filter(c=>c.exchanges.includes('BSE')):universe.rows;const matches=q?filtered.filter(c=>[c.name,c.nseSymbol,c.bseSymbol,c.bseCode,c.isin].some(v=>String(v||'').toLowerCase().includes(q))):filtered;res.json({success:true,source:universe.sources,updatedAt:new Date(universe.at).toISOString(),coverage:coverage(universe),total:universe.rows.length,matched:matches.length,results:matches.slice(0,limit)});}catch(error){console.error('[Tara Company Universe]',error.message);res.status(503).json({success:false,error:'Company universe is temporarily unavailable. Please try again shortly.'});}});
+  const searchHandler=async(req,res)=>{try{const universe=await getUniverse();const q=String(req.query.q||'').trim(),exchange=String(req.query.exchange||'all').trim().toLowerCase(),limit=Math.min(Math.max(Number(req.query.limit)||10,1),500);const filtered=exchange==='nse'?universe.rows.filter(c=>c.exchanges.includes('NSE')):exchange==='bse'?universe.rows.filter(c=>c.exchanges.includes('BSE')):universe.rows;const matches=filtered.map(c=>({...c,searchRelevance:searchRank(c,q)})).filter(c=>!q||c.searchRelevance>0).sort((a,b)=>b.searchRelevance-a.searchRelevance||a.name.localeCompare(b.name)).slice(0,limit);res.json({success:true,query:q,totalMatches:matches.length,source:universe.sources,updatedAt:new Date(universe.at).toISOString(),coverage:coverage(universe),companies:matches});}catch(error){console.error('[Tara Company Search]',error.message);res.status(503).json({success:false,error:'Company search is temporarily unavailable.'});}};
+  app.get('/api/companies',searchHandler);
+  app.get('/api/companies/search',searchHandler);
+
+  // Evidence-first analysis endpoint. It accepts only caller-supplied verified evidence;
+  // no market values are stored or fabricated in this route.
+  app.post('/api/tara/analyze',async(req,res)=>{try{
+    const symbol=String(req.body?.symbol||'').trim().toUpperCase().replace(/[^A-Z0-9._-]/g,'');
+    if(!symbol)return res.status(400).json({success:false,error:'Valid NSE/BSE symbol is required'});
+    const data=req.body?.marketData||{};
+    const required=['currentPrice','rsi','sma20','sma50','pe','debtToEquity'];
+    const missing=required.filter(k=>data[k]===undefined||data[k]===null);
+    if(missing.length)return res.json({success:true,data:{status:'EVIDENCE_GATEKEEPER_BLOCKED',symbol,verdict:'INSUFFICIENT_VERIFIED_EVIDENCE',conclusion:null,blockedReasons:missing.map(k=>`Missing ${k}`),nextRequired:missing,disclaimer:'Tara AI does not generate market conclusions without verified evidence.'}});
+    const validation=validateMetrics(data);
+    if(!validation.isValid)return res.json({success:true,data:{status:'EVIDENCE_GATEKEEPER_BLOCKED',symbol,verdict:'INSUFFICIENT_VERIFIED_EVIDENCE',conclusion:null,blockedReasons:validation.errors,disclaimer:'Tara AI does not generate market conclusions from unverified or anomalous data.'}});
+    const analysis=calculateMultiFactorScore(data);
+    return res.json({success:true,data:{status:'ANALYSIS_COMPLETE',engine:'Tara AI Native Intelligence Engine',version:'2.1.0-native-evidence',symbol,taraScore:`${analysis.score}/100`,verdict:analysis.verdict,strategicStance:analysis.stance,factorBreakdown:analysis.factors,dataSource:{name:data.dataSource.name,retrievedAt:data.dataSource.retrievedAt,licenseType:data.dataSource.licenseType||null},disclaimer:'Educational market research only; not SEBI registered investment advice.'}});
+  }catch(error){return res.status(500).json({success:false,error:'Tara analysis could not be completed.'});}});
 }
 module.exports={registerCompanyRoutes};
