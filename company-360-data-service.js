@@ -5,6 +5,8 @@ const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const ACTION_TYPES = new Set(['DIVIDEND', 'BONUS', 'SPLIT', 'RIGHTS', 'BUYBACK']);
 const ACTION_STATUSES = new Set(['ANNOUNCED', 'UPCOMING', 'EXECUTED']);
 const EXCHANGES = new Set(['NSE', 'BSE']);
+const MANAGEMENT_CATEGORIES = new Set(['EXECUTIVE', 'NON_EXECUTIVE', 'INDEPENDENT', 'NOMINEE']);
+const MANAGEMENT_DIN_STATUSES = new Set(['ACTIVE', 'DISQUALIFIED', 'UNKNOWN']);
 
 function requestJson(url) {
   return new Promise((resolve, reject) => {
@@ -106,39 +108,117 @@ function validateCorporateActions(rows) {
   return rows.map(normalizeCorporateAction).filter(Boolean).slice(0, 200);
 }
 
+function normalizeDirector(row) {
+  if (!row || typeof row !== 'object') return null;
+  if (typeof row.name !== 'string' || !row.name.trim() || row.name.length > 200) return null;
+  if (typeof row.designation !== 'string' || !row.designation.trim() || row.designation.length > 200) return null;
+  if (!MANAGEMENT_CATEGORIES.has(row.category)) return null;
+  if (row.appointment_date !== null && row.appointment_date !== undefined && !isDate(row.appointment_date)) return null;
+  if (row.cessation_date !== null && row.cessation_date !== undefined && !isDate(row.cessation_date)) return null;
+  if (typeof row.is_active !== 'boolean') return null;
+  if (row.din !== null && row.din !== undefined && (typeof row.din !== 'string' || !/^\d{8}$/.test(row.din))) return null;
+  if (!MANAGEMENT_DIN_STATUSES.has(row.din_status ?? 'UNKNOWN')) return null;
+  if (row.term_start_date !== null && row.term_start_date !== undefined && !isDate(row.term_start_date)) return null;
+  if (row.term_end_date !== null && row.term_end_date !== undefined && !isDate(row.term_end_date)) return null;
+  if (row.term_duration_years !== null && row.term_duration_years !== undefined && (typeof row.term_duration_years !== 'number' || !Number.isFinite(row.term_duration_years) || row.term_duration_years < 0 || row.term_duration_years > 50)) return null;
+  if (row.disqualification_flag !== null && row.disqualification_flag !== undefined && typeof row.disqualification_flag !== 'boolean') return null;
+
+  return {
+    name: row.name.trim(),
+    din: row.din ?? null,
+    din_status: row.din_status ?? 'UNKNOWN',
+    disqualification_flag: row.disqualification_flag ?? (row.din_status === 'DISQUALIFIED'),
+    designation: row.designation.trim(),
+    category: row.category,
+    appointment_date: row.appointment_date ?? null,
+    cessation_date: row.cessation_date ?? null,
+    term_start_date: row.term_start_date ?? null,
+    term_end_date: row.term_end_date ?? null,
+    term_duration_years: row.term_duration_years ?? null,
+    is_active: row.is_active
+  };
+}
+
+function normalizeKeyExecutive(row) {
+  if (!row || typeof row !== 'object') return null;
+  if (typeof row.name !== 'string' || !row.name.trim() || row.name.length > 200) return null;
+  if (typeof row.designation !== 'string' || !row.designation.trim() || row.designation.length > 200) return null;
+  if (row.appointment_date !== null && row.appointment_date !== undefined && !isDate(row.appointment_date)) return null;
+  return {
+    name: row.name.trim(),
+    designation: row.designation.trim(),
+    appointment_date: row.appointment_date ?? null
+  };
+}
+
+function normalizeManagement(raw) {
+  if (!raw || typeof raw !== 'object' || raw.verified !== true || !EXCHANGES.has(raw.source) || !isDate(raw.as_of_date)) return null;
+  const management = raw.management;
+  if (!management || typeof management !== 'object' || !Array.isArray(management.board_of_directors) || !Array.isArray(management.key_executives)) return null;
+
+  const board = management.board_of_directors.map(normalizeDirector);
+  const executives = management.key_executives.map(normalizeKeyExecutive);
+  if (board.some(item => !item) || executives.some(item => !item)) return null;
+
+  return {
+    verified: true,
+    source: raw.source,
+    as_of_date: raw.as_of_date,
+    circular_ref: typeof raw.circular_ref === 'string' && raw.circular_ref.length <= 500 ? raw.circular_ref : null,
+    management: {
+      board_of_directors: board.slice(0, 200),
+      key_executives: executives.slice(0, 100)
+    }
+  };
+}
+
+function validateManagementPayload(raw) {
+  const normalized = normalizeManagement(raw);
+  if (!normalized) return null;
+  return normalized.management;
+}
+
 function normalizeProviderPayload(raw) {
-  if (!raw || raw.verified !== true || raw.source !== 'NSE_DISCLOSURES' || !isDate(raw.as_of_date)) {
-    return { verified: false, source: null, as_of_date: null, financials: [], shareholding: null, corporate_actions: [] };
+  if (!raw || raw.verified !== true || !EXCHANGES.has(raw.source) || !isDate(raw.as_of_date)) {
+    return { verified: false, source: null, as_of_date: null, financials: [], shareholding: null, corporate_actions: [], management: null };
   }
   return {
     verified: true,
-    source: 'NSE_DISCLOSURES',
+    source: raw.source,
     as_of_date: raw.as_of_date,
     financials: validateFinancialRows(raw.financials),
     shareholding: validateShareholding(raw.shareholding),
-    corporate_actions: validateCorporateActions(raw.corporate_actions)
+    corporate_actions: validateCorporateActions(raw.corporate_actions),
+    management: validateManagementPayload(raw)
   };
 }
 
 async function loadCompany360Data() {
   const url = String(process.env.COMPANY_360_FINANCIALS_URL || '').trim();
   const corporateActionsUrl = String(process.env.COMPANY_360_CORPORATE_ACTIONS_URL || '').trim();
-  const urls = [...new Set([url, corporateActionsUrl].filter(Boolean))];
-  if (urls.length === 0) return { verified: false, source: null, as_of_date: null, financials: [], shareholding: null, corporate_actions: [] };
+  const managementUrl = String(process.env.COMPANY_360_MANAGEMENT_URL || '').trim();
+  const urls = [...new Set([url, corporateActionsUrl, managementUrl].filter(Boolean))];
+  if (urls.length === 0) return { verified: false, source: null, as_of_date: null, financials: [], shareholding: null, corporate_actions: [], management: null };
 
   const results = await Promise.all(urls.map(async sourceUrl => {
     try { return normalizeProviderPayload(await requestJson(sourceUrl)); }
-    catch (error) { return { verified: false, source: null, as_of_date: null, financials: [], shareholding: null, corporate_actions: [], error: error.message }; }
+    catch (error) { return { verified: false, source: null, as_of_date: null, financials: [], shareholding: null, corporate_actions: [], management: null, error: error.message }; }
   }));
 
   const primary = results.find(item => item.verified) || results[0];
   const actions = results.flatMap(item => item.corporate_actions || []);
   const uniqueActions = [];
-  const seen = new Set();
+  const seenActions = new Set();
   for (const action of actions) {
     const key = JSON.stringify(action);
-    if (!seen.has(key)) { seen.add(key); uniqueActions.push(action); }
+    if (!seenActions.has(key)) { seenActions.add(key); uniqueActions.push(action); }
   }
+
+  const managementSources = results.filter(item => item.verified && item.management);
+  const management = managementSources[0]?.management || null;
+  const managementSource = managementSources[0]?.source || null;
+  const managementAsOfDate = managementSources[0]?.as_of_date || null;
+  const managementCircularRef = managementSources[0]?.circular_ref || null;
 
   return {
     verified: primary.verified === true,
@@ -146,7 +226,11 @@ async function loadCompany360Data() {
     as_of_date: primary.as_of_date || null,
     financials: primary.financials || [],
     shareholding: primary.shareholding || null,
-    corporate_actions: uniqueActions.slice(0, 200)
+    corporate_actions: uniqueActions.slice(0, 200),
+    management,
+    management_source: managementSource,
+    management_as_of_date: managementAsOfDate,
+    management_circular_ref: managementCircularRef
   };
 }
 
@@ -156,5 +240,9 @@ module.exports = {
   validateFinancialRows,
   validateShareholding,
   normalizeCorporateAction,
-  validateCorporateActions
+  validateCorporateActions,
+  normalizeDirector,
+  normalizeKeyExecutive,
+  normalizeManagement,
+  validateManagementPayload
 };
