@@ -13,7 +13,8 @@ const strictExternal = String(process.env.TARA_STRICT_EXTERNAL || 'false').toLow
 const requiredFiles = [
   'server.js', 'package.json', 'render.yaml', 'company-routes.js',
   'company-intelligence-routes.js', 'company-360-routes.js',
-  'live-market-routes.js', 'market-history-routes.js',
+  'live-market-routes.js', 'market-history-routes.js', 'historical-ohlcv-routes.js',
+  'services/historical-storage-adapter.js', 'db/ohlcv_daily.sql',
   'exchange-calendar.js', 'tara-intelligence-engine.js'
 ];
 
@@ -22,7 +23,9 @@ const requiredEnvKeys = [
   'MARKET_DATA_LICENSE_STATUS', 'MARKET_DATA_DISPLAY_PERMISSION',
   'MARKET_HISTORY_API_URL', 'MARKET_HISTORY_API_KEY', 'MARKET_HISTORY_PROVIDER_NAME',
   'MARKET_HISTORY_LICENSE_STATUS', 'FINANCIAL_DATA_PROVIDER_NAME',
-  'NEWS_PROVIDER_NAME', 'BSE_SECURITY_MASTER_URL', 'BSE_SECURITY_MASTER_LICENSE_STATUS'
+  'NEWS_PROVIDER_NAME', 'BSE_SECURITY_MASTER_URL', 'BSE_SECURITY_MASTER_LICENSE_STATUS',
+  'TIMESCALE_DB_URL', 'POSTGRES_URL', 'HISTORICAL_STORAGE_LICENSE_STATUS',
+  'HISTORICAL_STORAGE_DISPLAY_PERMISSION', 'HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION'
 ];
 
 const checks = [];
@@ -55,6 +58,7 @@ async function main() {
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   check('npm:start-script', pkg.scripts && pkg.scripts.start === 'node server.js', 'start script must run server.js');
   check('npm:production-test-script', pkg.scripts && pkg.scripts['test:production'] === 'node scripts/production-readiness.js', 'production test command is registered');
+  check('npm:pg-driver', !!pkg.dependencies?.pg, 'PostgreSQL driver declared for authorized storage');
 
   const serverText = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
   check('security:helmet', /helmet\(/.test(serverText), 'Helmet middleware present');
@@ -65,14 +69,20 @@ async function main() {
   check('security:security-status', /\/api\/security-status/.test(serverText), 'security status endpoint present');
   check('truth:verified-data-policy', /verified-data-only/.test(serverText) || /verified/.test(fs.readFileSync(path.join(root, 'tara-intelligence-engine.js'), 'utf8')), 'verified-data policy present');
 
+  const storageText = fs.readFileSync(path.join(root, 'services/historical-storage-adapter.js'), 'utf8');
+  check('history:pending-adapter', /PendingHistoricalStorageAdapter/.test(storageText), 'pending storage adapter present');
+  check('history:postgres-adapter', /PostgresHistoricalStorageAdapter/.test(storageText), 'PostgreSQL/Timescale-compatible adapter present');
+  check('history:zero-fake-pending', /Awaiting authorized historical storage connection/.test(storageText), 'explicit pending notice present');
+
   const renderText = fs.readFileSync(path.join(root, 'render.yaml'), 'utf8');
   check('render:health-check', /healthCheckPath:\s*\/api\/health/.test(renderText), 'Render health check configured');
   check('render:license-gates', /MARKET_DATA_LICENSE_STATUS/.test(renderText) && /MARKET_DATA_DISPLAY_PERMISSION/.test(renderText), 'market-data license gates configured');
   check('render:bse-license-gate', /BSE_SECURITY_MASTER_LICENSE_STATUS/.test(renderText), 'BSE license gate configured');
+  check('render:historical-storage', /TIMESCALE_DB_URL/.test(renderText) && /HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION/.test(renderText), 'authorized historical storage configuration declared');
 
   for (const key of requiredEnvKeys) {
     const inRender = new RegExp(`key:\\s*${key}\\b`).test(renderText);
-    check(`config:${key}`, inRender, 'provider/license configuration declared');
+    check(`config:${key}`, inRender, 'provider/license/storage configuration declared');
   }
 
   try {
