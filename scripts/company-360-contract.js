@@ -41,6 +41,26 @@ const valid = normalizeProviderPayload({
       source_filing: { verified: true, exchange: 'NSE', circular_ref: 'NSE/CORP/2026/001' }
     },
     {
+      action_type: 'BONUS',
+      purpose: 'Bonus Issue',
+      ex_date: '2026-08-20',
+      record_date: '2026-08-21',
+      bc_start_date: null,
+      bc_end_date: null,
+      status: 'ANNOUNCED',
+      source_filing: { verified: true, exchange: 'NSE', circular_ref: 'NSE/CORP/2026/003' }
+    },
+    {
+      action_type: 'SPLIT',
+      purpose: 'Face Value Split',
+      ex_date: '2026-08-25',
+      record_date: '2026-08-26',
+      bc_start_date: null,
+      bc_end_date: null,
+      status: 'UPCOMING',
+      source_filing: { verified: true, exchange: 'BSE', circular_ref: 'BSE/CORP/2026/004' }
+    },
+    {
       action_type: 'RIGHTS',
       purpose: 'Rights Issue - 1 Equity Share for every 4 held',
       ex_date: null,
@@ -66,13 +86,13 @@ assert.strictEqual(valid.verified, true);
 assert.strictEqual(valid.source, 'NSE_DISCLOSURES');
 assert.strictEqual(valid.financials.length, 1);
 assert.strictEqual(valid.shareholding.total_holding_pct, 100);
-assert.strictEqual(valid.corporate_actions.length, 3);
-assert.strictEqual(valid.corporate_actions[0].action_type, 'DIVIDEND');
+assert.strictEqual(valid.corporate_actions.length, 5);
+assert.deepStrictEqual(valid.corporate_actions.map(item => item.action_type), ['DIVIDEND', 'BONUS', 'SPLIT', 'RIGHTS', 'BUYBACK']);
 assert.strictEqual(valid.corporate_actions[0].bc_start_date, '2026-08-08');
 assert.strictEqual(valid.corporate_actions[1].status, 'ANNOUNCED');
-assert.strictEqual(valid.corporate_actions[2].source_filing.exchange, 'NSE');
+assert.strictEqual(valid.corporate_actions[2].source_filing.exchange, 'BSE');
 assert.strictEqual(buildCorporateActions(valid).status.verified, true);
-assert.strictEqual(buildCorporateActions(valid).data.length, 3);
+assert.strictEqual(buildCorporateActions(valid).data.length, 5);
 
 assert.strictEqual(validateFinancialRows([{ quarter_ended: 'bad', nature: 'Consolidated', revenue: 1, net_profit: 1, operating_profit_margin_pct: 1, eps: 1 }]).length, 0);
 assert.strictEqual(validateShareholding({ promoter_holding_pct: 90, fii_holding_pct: 20, dii_holding_pct: 0, public_retail_pct: 0, pledged_shares_pct: 0 }), null);
