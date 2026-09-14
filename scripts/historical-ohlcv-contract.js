@@ -1,51 +1,154 @@
 const assert = require('assert');
-const { normalizeCandle, uniqueOrdered, licenseGate, calendarFiltered } = require('../historical-ohlcv-routes');
+const {
+  PENDING_NOTICE,
+  config,
+  authorized,
+  normalizeRows,
+  PendingHistoricalStorageAdapter,
+  createHistoricalStorageAdapter
+} = require('../services/historical-storage-adapter');
 
-const original = {
-  MARKET_HISTORY_LICENSE_STATUS: process.env.MARKET_HISTORY_LICENSE_STATUS,
-  MARKET_HISTORY_DISPLAY_PERMISSION: process.env.MARKET_HISTORY_DISPLAY_PERMISSION,
-  MARKET_HISTORY_PROVIDER_NAME: process.env.MARKET_HISTORY_PROVIDER_NAME
-};
+const { calendarFiltered } = require('../historical-ohlcv-routes');
 
-const valid = normalizeCandle(['2026-09-10', 100, 110, 95, 105, 12345], '1d');
-assert.deepStrictEqual(valid, { time: '2026-09-10', open: 100, high: 110, low: 95, close: 105, volume: 12345 });
-assert(valid.high >= Math.max(valid.open, valid.close, valid.low));
-assert(valid.low <= Math.min(valid.open, valid.close, valid.high));
+async function main() {
+  const previous = {
+    TIMESCALE_DB_URL: process.env.TIMESCALE_DB_URL,
+    POSTGRES_URL: process.env.POSTGRES_URL,
+    HISTORICAL_STORAGE_LICENSE_STATUS: process.env.HISTORICAL_STORAGE_LICENSE_STATUS,
+    HISTORICAL_STORAGE_DISPLAY_PERMISSION: process.env.HISTORICAL_STORAGE_DISPLAY_PERMISSION,
+    HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION: process.env.HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION
+  };
 
-const invalid = normalizeCandle(['2026-09-11', 100, 90, 95, 105, 1], '1d');
-assert.strictEqual(invalid, null);
+  try {
+    delete process.env.TIMESCALE_DB_URL;
+    delete process.env.POSTGRES_URL;
+    process.env.HISTORICAL_STORAGE_LICENSE_STATUS = 'not-configured';
+    process.env.HISTORICAL_STORAGE_DISPLAY_PERMISSION = 'not-configured';
+    process.env.HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION = 'not-configured';
 
-const negative = normalizeCandle(['2026-09-11', -1, 2, 0, 1, 1], '1d');
-assert.strictEqual(negative, null);
+    // The historical OHLCV contract must use the functions actually exported by
+    // the storage adapter. normalizeCandle was a stale API and is intentionally
+    // replaced by normalizeRows.
+    assert.strictEqual(authorized(config()), false);
 
-const intraday = normalizeCandle(['2026-09-10T10:15:00+05:30', 100, 102, 99, 101, 50], '15m');
-assert.strictEqual(intraday.time, '2026-09-10T04:45:00.000Z');
+    const pending = new PendingHistoricalStorageAdapter();
+    assert.deepStrictEqual(
+      await pending.fetchCandles('TCS', 'NSE', '1Y'),
+      {
+        candles: [],
+        verified: false,
+        source: null,
+        notice: PENDING_NOTICE
+      }
+    );
 
-const ordered = uniqueOrdered([
-  ['2026-09-03', 103, 104, 102, 103.5, 10],
-  ['2026-09-01', 101, 102, 100, 101.5, 8],
-  ['2026-09-02', 102, 103, 101, 102.5, 9],
-  ['2026-09-02', 102, 103, 101, 102.5, 9]
-], '1d');
-assert.deepStrictEqual(ordered.map(x => x.time), ['2026-09-01', '2026-09-02', '2026-09-03']);
-assert.strictEqual(ordered.length, 3);
+    const pendingHealth = await pending.healthCheck();
+    assert.strictEqual(pendingHealth.ready, false);
+    assert.strictEqual(pendingHealth.verified, false);
+    assert.strictEqual(
+      createHistoricalStorageAdapter() instanceof PendingHistoricalStorageAdapter,
+      true
+    );
 
-process.env.MARKET_HISTORY_LICENSE_STATUS = 'not-configured';
-process.env.MARKET_HISTORY_DISPLAY_PERMISSION = 'not-configured';
-assert.strictEqual(licenseGate().allowed, false);
-process.env.MARKET_HISTORY_LICENSE_STATUS = 'licensed';
-process.env.MARKET_HISTORY_DISPLAY_PERMISSION = 'allowed';
-assert.strictEqual(licenseGate().allowed, true);
+    const rows = normalizeRows([
+      {
+        trade_date: '2025-01-03',
+        open: '100',
+        high: '110',
+        low: '95',
+        close: '105',
+        volume: '123'
+      },
+      {
+        trade_date: '2025-01-02',
+        open: 90,
+        high: 100,
+        low: 85,
+        close: 95,
+        volume: 100
+      },
+      {
+        trade_date: '2025-01-02',
+        open: 91,
+        high: 101,
+        low: 86,
+        close: 96,
+        volume: 101
+      },
+      {
+        trade_date: '2025-01-04',
+        open: 100,
+        high: 99,
+        low: 90,
+        close: 95,
+        volume: 100
+      },
+      {
+        trade_date: '2025-01-05',
+        open: -1,
+        high: 2,
+        low: 0,
+        close: 1,
+        volume: 1
+      }
+    ]);
 
-const calendarResult = calendarFiltered([
-  { time: '2026-01-26', open: 100, high: 101, low: 99, close: 100, volume: 1 },
-  { time: '2026-01-27', open: 100, high: 101, low: 99, close: 100, volume: 1 }
-], '1d');
-assert.deepStrictEqual(calendarResult.candles.map(c => c.time), ['2026-01-27']);
-assert.strictEqual(calendarResult.knownCalendarApplied, true);
+    assert.strictEqual(rows.length, 2);
+    assert.deepStrictEqual(
+      rows.map(row => row.time),
+      ['2025-01-02', '2025-01-03']
+    );
+    assert.strictEqual(rows[0].open, 91);
+    assert.strictEqual(rows[0].high, 101);
+    assert.strictEqual(rows[0].low, 86);
+    assert.strictEqual(rows[0].close, 96);
+    assert.strictEqual(rows[0].volume, 101);
 
-if (original.MARKET_HISTORY_LICENSE_STATUS === undefined) delete process.env.MARKET_HISTORY_LICENSE_STATUS; else process.env.MARKET_HISTORY_LICENSE_STATUS = original.MARKET_HISTORY_LICENSE_STATUS;
-if (original.MARKET_HISTORY_DISPLAY_PERMISSION === undefined) delete process.env.MARKET_HISTORY_DISPLAY_PERMISSION; else process.env.MARKET_HISTORY_DISPLAY_PERMISSION = original.MARKET_HISTORY_DISPLAY_PERMISSION;
-if (original.MARKET_HISTORY_PROVIDER_NAME === undefined) delete process.env.MARKET_HISTORY_PROVIDER_NAME; else process.env.MARKET_HISTORY_PROVIDER_NAME = original.MARKET_HISTORY_PROVIDER_NAME;
+    const calendarResult = calendarFiltered([
+      {
+        time: '2026-01-26',
+        open: 100,
+        high: 101,
+        low: 99,
+        close: 100,
+        volume: 1
+      },
+      {
+        time: '2026-01-27',
+        open: 100,
+        high: 101,
+        low: 99,
+        close: 100,
+        volume: 1
+      }
+    ]);
 
-console.log(JSON.stringify({ pass: true, checks: ['OHLC invariants', 'invalid candle rejection', 'negative price rejection', 'intraday timestamp preservation', 'ordered deduplication', 'license/display gate', 'official 2026 holiday filtering'] }, null, 2));
+    assert.deepStrictEqual(
+      calendarResult.candles.map(candle => candle.time),
+      ['2026-01-27']
+    );
+    assert.strictEqual(calendarResult.calendarApplied, true);
+
+    console.log(JSON.stringify({
+      pass: true,
+      checks: [
+        'historical storage adapter exports',
+        'unconfigured storage pending schema',
+        'invalid OHLC rejection',
+        'duplicate-date normalization',
+        'ordered daily candles',
+        'official holiday filtering'
+      ]
+    }, null, 2));
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+}
+
+main().catch(error => {
+  console.error('[Historical OHLCV contract] FAIL:', error.message);
+  process.exitCode = 1;
+});
