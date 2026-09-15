@@ -14,7 +14,7 @@ function get(path) {
     const url = new URL(baseUrl + path);
     const lib = url.protocol === 'https:' ? https : http;
     const req = lib.get(url, {
-      headers: { 'User-Agent': 'TaraAI-Company360-Integration/1.0', Accept: 'application/json' }
+      headers: { 'User-Agent': 'TaraAI-Company360-Integration/1.1', Accept: 'application/json' }
     }, res => {
       let body = '';
       res.setEncoding('utf8');
@@ -60,11 +60,12 @@ function assertCompany360(payload, symbol) {
   }
   assert.strictEqual(typeof payload.profile.company_name, 'string', 'profile.company_name must be verified text');
   assert.ok(payload.profile.company_name.trim(), 'profile.company_name must not be empty');
-  assert.strictEqual(typeof payload.profile.isin, 'string', 'profile.isin must be present for a verified company');
-  assert.ok(payload.profile.isin.trim(), 'profile.isin must not be empty');
+  if (payload.profile.isin !== null) assert.ok(/^IN[A-Z0-9]{10}$/.test(payload.profile.isin), 'profile.isin must be a valid ISIN when present');
   assert.strictEqual(typeof payload.profile.exchange, 'string', 'profile.exchange must be present for a verified company');
   assert.ok(payload.profile.exchange.trim(), 'profile.exchange must not be empty');
   assert.strictEqual(payload.profile.data_status.verified, true, 'profile identity must be verified');
+  assert.strictEqual(typeof payload.profile.data_status.isin_live, 'boolean', 'profile.data_status.isin_live must be boolean');
+  if (payload.profile.isin === null) assert.ok(typeof payload.profile.data_status.isin_notice === 'string' && payload.profile.data_status.isin_notice.trim(), 'missing ISIN requires explicit notice');
 
   assert.ok(payload.trading_overview && typeof payload.trading_overview === 'object', 'trading_overview section missing');
 
@@ -141,6 +142,8 @@ function assertCompany360(payload, symbol) {
     suite: 'Company 360 Integration Verification',
     baseUrl,
     validSymbol: String(symbol).toUpperCase(),
+    isin: valid.json.profile.isin,
+    isinLive: valid.json.profile.data_status.isin_live,
     validEndpoint: { status: valid.status, schemaVersion: valid.json.schemaVersion, pass: true },
     invalidEndpoint: { status: invalid.status, error: invalid.json.error, pass: true },
     sections: ['profile', 'financials', 'shareholding', 'corporate_actions', 'management', 'disclosures_news'],
