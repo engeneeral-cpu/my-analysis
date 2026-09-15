@@ -1,10 +1,13 @@
 const https = require('https');
+const fs = require('fs');
+const path = require('path');
 const { validateMetrics, calculateMultiFactorScore } = require('./tara-intelligence-engine');
 
 const NSE_EQUITY_URL = 'https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv';
 const BSE_SECURITY_MASTER_URL = String(process.env.BSE_SECURITY_MASTER_URL || '').trim();
 const BSE_LICENSE_STATUS = String(process.env.BSE_SECURITY_MASTER_LICENSE_STATUS || '').trim().toLowerCase();
 const BSE_ALLOWED = ['licensed', 'authorized', 'active'].includes(BSE_LICENSE_STATUS);
+const LOCAL_UNIVERSE_FILE = path.join(__dirname, 'data', 'companies.json');
 const CACHE_MS = 6 * 60 * 60 * 1000;
 const STALE_MS = 24 * 60 * 60 * 1000;
 let cache = { at: 0, rows: [], sources: [], bseMasterConnected: false, refreshing: false, error: null };
@@ -19,6 +22,7 @@ function download(url) {
     req.setTimeout(30000, () => req.destroy(new Error('Security master request timed out'))); req.on('error', reject);
   });
 }
+
 function parseCsv(text) {
   const rows = []; let row = [], cell = '', quoted = false;
   for (let i = 0; i < text.length; i++) { const ch = text[i], next = text[i + 1]; if (ch === '"' && quoted && next === '"') { cell += '"'; i++; continue; } if (ch === '"') { quoted = !quoted; continue; } if (ch === ',' && !quoted) { row.push(cell.trim()); cell = ''; continue; } if ((ch === '\n' || ch === '\r') && !quoted) { if (ch === '\r' && next === '\n') i++; row.push(cell.trim()); cell = ''; if (row.some(Boolean)) rows.push(row); row = []; continue; } cell += ch; }
@@ -26,33 +30,91 @@ function parseCsv(text) {
   if (!rows.length) return [];
   const headers = rows[0].map(h => h.toUpperCase().replace(/\s+/g, ' ').trim()); const idx = (...names) => headers.findIndex(h => names.some(n => h === n || h.includes(n)));
   const symbol = idx('SYMBOL', 'SECURITY ID', 'INSTRUMENT CODE'), name = idx('NAME OF COMPANY', 'SCRIP NAME', 'SECURITY NAME'), series = idx('SERIES', 'GROUP NAME'), isin = idx('ISIN NUMBER', 'ISIN CODE', 'ISIN'), bseCode = idx('SCRIP CODE', 'SC_CODE', 'SECURITY CODE');
-  return rows.slice(1).map(r => ({ name: name >= 0 ? r[name] : '', symbol: symbol >= 0 ? r[symbol] : '', series: series >= 0 ? r[series] : '', isin: isin >= 0 ? r[isin] : '', bseCode: bseCode >= 0 ? r[bseCode] : '' })).filter(x => x.name && x.isin);
+  return rows.slice(1).map(r => ({ name: name >= 0 ? r[name] : '', symbol: symbol >= 0 ? r[symbol] : '', series: series >= 0 ? r[series] : '', isin: isin >= 0 ? r[isin] : '', bseCode: bseCode >= 0 ? r[bseCode] : '' })).filter(x => x.name && x.symbol);
 }
+
 function normalize(value) { return String(value || '').trim().toUpperCase(); }
-function mergeUniverses(nseRows, bseRows) {
-  const byIsin = new Map();
-  const add = (item, exchange) => { const isin = normalize(item.isin); if (!isin) return; const existing = byIsin.get(isin) || { name: item.name, isin, nseSymbol: '', bseCode: '', bseSymbol: '', series: item.series || '', exchanges: [], verifiedSources: [] }; if (item.name && (!existing.name || exchange === 'NSE')) existing.name = item.name; if (exchange === 'NSE') existing.nseSymbol = item.symbol || existing.nseSymbol; if (exchange === 'BSE') { existing.bseCode = item.bseCode || existing.bseCode; existing.bseSymbol = item.symbol || existing.bseSymbol; } if (item.series && !existing.series) existing.series = item.series; if (!existing.exchanges.includes(exchange)) existing.exchanges.push(exchange); if (!existing.verifiedSources.includes(exchange)) existing.verifiedSources.push(exchange); byIsin.set(isin, existing); };
-  nseRows.forEach(r => add(r, 'NSE')); bseRows.forEach(r => add(r, 'BSE'));
-  return [...byIsin.values()].map(c => ({ ...c, exchange: c.exchanges.length > 1 ? 'NSE+BSE' : c.exchanges[0], symbol: c.nseSymbol || c.bseSymbol || '', nseUrl: c.nseSymbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(c.nseSymbol)}` : null, bseUrl: c.bseCode ? 'https://www.bseindia.com/stock-share-price/' : 'https://www.bseindia.com/' })).sort((a, b) => a.name.localeCompare(b.name));
+
+function localUniverse() {
+  try {
+    if (!fs.existsSync(LOCAL_UNIVERSE_FILE)) return null;
+    const payload = JSON.parse(fs.readFileSync(LOCAL_UNIVERSE_FILE, 'utf8'));
+    const rows = Array.isArray(payload.results) ? payload.results : [];
+    if (!rows.length) return null;
+    return rows.map(c => ({
+      name: c.name || '',
+      isin: c.isin || '',
+      nseSymbol: c.nseSymbol || c.symbol || '',
+      bseCode: c.bseCode || '',
+      bseSymbol: c.bseSymbol || '',
+      series: c.series || 'EQ',
+      exchanges: Array.isArray(c.exchanges) && c.exchanges.length ? c.exchanges : [c.exchange || 'NSE'],
+      verifiedSources: Array.isArray(c.verifiedSources) && c.verifiedSources.length ? c.verifiedSources : ['NSE official security master'],
+      exchange: c.exchange || 'NSE',
+      symbol: c.symbol || c.nseSymbol || c.bseSymbol || '',
+      nseUrl: c.nseUrl || null,
+      bseUrl: c.bseUrl || null
+    })).filter(c => c.name && (c.nseSymbol || c.bseSymbol || c.bseCode));
+  } catch (error) {
+    console.error('[Tara Local Company Universe]', error.message);
+    return null;
+  }
 }
+
+function mergeUniverses(nseRows, bseRows) {
+  const byKey = new Map();
+  const add = (item, exchange) => {
+    const isin = normalize(item.isin);
+    const symbol = normalize(item.symbol || item.bseCode);
+    const key = isin || `${exchange}:${symbol}`;
+    if (!key) return;
+    const existing = byKey.get(key) || { name: item.name, isin, nseSymbol: '', bseCode: '', bseSymbol: '', series: item.series || '', exchanges: [], verifiedSources: [] };
+    if (item.name && (!existing.name || exchange === 'NSE')) existing.name = item.name;
+    if (exchange === 'NSE') existing.nseSymbol = item.symbol || existing.nseSymbol;
+    if (exchange === 'BSE') { existing.bseCode = item.bseCode || existing.bseCode; existing.bseSymbol = item.symbol || existing.bseSymbol; }
+    if (item.series && !existing.series) existing.series = item.series;
+    if (!existing.exchanges.includes(exchange)) existing.exchanges.push(exchange);
+    if (!existing.verifiedSources.includes(exchange)) existing.verifiedSources.push(exchange);
+    byKey.set(key, existing);
+  };
+  nseRows.forEach(r => add(r, 'NSE')); bseRows.forEach(r => add(r, 'BSE'));
+  return [...byKey.values()].map(c => ({ ...c, exchange: c.exchanges.length > 1 ? 'NSE+BSE' : c.exchanges[0], symbol: c.nseSymbol || c.bseSymbol || c.bseCode || '', nseUrl: c.nseSymbol ? `https://www.nseindia.com/get-quotes/equity?symbol=${encodeURIComponent(c.nseSymbol)}` : null, bseUrl: c.bseCode ? 'https://www.bseindia.com/stock-share-price/' : 'https://www.bseindia.com/' })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
 async function refreshUniverse() {
   if (cache.refreshing) return cache;
   cache.refreshing = true;
   try {
-    const nseCsv = await download(NSE_EQUITY_URL); const nseRows = parseCsv(nseCsv.toString('utf8')).filter(x => !x.series || normalize(x.series) === 'EQ');
+    const nseCsv = await download(NSE_EQUITY_URL);
+    const nseRows = parseCsv(nseCsv.toString('utf8')).filter(x => !x.series || normalize(x.series) === 'EQ');
     let bseRows = [], bseMasterConnected = false; const sources = ['NSE official security master'];
     if (BSE_SECURITY_MASTER_URL && BSE_ALLOWED) { try { const bseCsv = await download(BSE_SECURITY_MASTER_URL); bseRows = parseCsv(bseCsv.toString('utf8')).filter(x => !x.series || ['EQ', 'A', 'B'].includes(normalize(x.series))); if (bseRows.length) { bseMasterConnected = true; sources.push('BSE official/authorized security master'); } } catch (error) { console.error('[Tara BSE Master]', error.message); } }
     else if (BSE_SECURITY_MASTER_URL && !BSE_ALLOWED) console.warn('[Tara BSE Master] Feed URL configured but license status is not licensed/authorized/active; BSE data disabled.');
     if (!nseRows.length) throw new Error('NSE security master returned no equity records');
     cache = { ...cache, at: Date.now(), rows: mergeUniverses(nseRows, bseRows), sources, bseMasterConnected, refreshing: false, error: null }; return cache;
-  } catch (error) { cache = { ...cache, refreshing: false, error: error.message }; throw error; }
+  } catch (error) {
+    const fallback = localUniverse();
+    if (fallback?.length) {
+      cache = { ...cache, at: Date.now(), rows: fallback, sources: ['NSE official security master (verified local index)'], bseMasterConnected: fallback.some(c => c.exchanges.includes('BSE')), refreshing: false, error: `Live security master unavailable; using verified local index: ${error.message}` };
+      return cache;
+    }
+    cache = { ...cache, refreshing: false, error: error.message }; throw error;
+  }
 }
+
 async function getUniverse() {
   const age = Date.now() - cache.at;
   if (cache.rows.length && age < CACHE_MS) return cache;
   if (cache.rows.length && age < STALE_MS) { refreshUniverse().catch(() => {}); return cache; }
+  const fallback = localUniverse();
+  if (fallback?.length) {
+    cache = { ...cache, at: Date.now(), rows: fallback, sources: ['NSE official security master (verified local index)'], bseMasterConnected: fallback.some(c => c.exchanges.includes('BSE')), error: null };
+    refreshUniverse().catch(() => {});
+    return cache;
+  }
   return refreshUniverse();
 }
+
 function coverage(universe) { const nse = universe.rows.filter(c => c.exchanges.includes('NSE')).length, bse = universe.rows.filter(c => c.exchanges.includes('BSE')).length, both = universe.rows.filter(c => c.exchanges.includes('NSE') && c.exchanges.includes('BSE')).length; return { nse, bse, both, bseMasterConnected: universe.bseMasterConnected }; }
 function searchRank(c, q) {
   const query = String(q || '').trim().toLowerCase(); if (!query) return 0;
