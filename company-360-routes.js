@@ -1,5 +1,6 @@
-const { getUniverse } = require('./company-routes');
+const https = require('https');
 const rateLimit = require('express-rate-limit');
+const { getUniverse } = require('./company-routes');
 const { loadCompany360Data } = require('./company-360-data-service');
 const { loadCompany360News } = require('./company-360-news-service');
 
@@ -18,6 +19,45 @@ function missingField(notice = 'Awaiting official exchange disclosure') {
 
 function findCompany(rows, symbol) {
   return rows.find(company => String(company.nseSymbol || '').toUpperCase() === symbol || String(company.bseSymbol || '').toUpperCase() === symbol || String(company.bseCode || '').toUpperCase() === symbol);
+}
+
+function fetchNseQuoteMetadata(symbol) {
+  return new Promise((resolve) => {
+    const url = `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(symbol)}`;
+    const req = https.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0 Safari/537.36',
+        'Accept': 'application/json,text/plain,*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Referer': 'https://www.nseindia.com/'
+      }
+    }, response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => { body += chunk; });
+      response.on('end', () => {
+        if (response.statusCode !== 200) return resolve(null);
+        try {
+          const payload = JSON.parse(body);
+          const metadata = payload?.metadata || {};
+          const info = payload?.info || {};
+          const isin = String(metadata.isin || info.isin || '').trim().toUpperCase();
+          if (!/^IN[A-Z0-9]{10}$/.test(isin)) return resolve(null);
+          resolve({
+            isin,
+            company_name: String(metadata.companyName || info.companyName || '').trim() || null,
+            series: String(metadata.series || '').trim() || null,
+            listing_date: String(metadata.listingDate || '').trim() || null,
+            industry: String(metadata.industry || info.industry || '').trim() || null,
+            source: 'NSE live quote metadata',
+            as_of_date: new Date().toISOString()
+          });
+        } catch { resolve(null); }
+      });
+    });
+    req.setTimeout(8000, () => req.destroy());
+    req.on('error', () => resolve(null));
+  });
 }
 
 function emptyFinancials() {
@@ -103,27 +143,40 @@ async function getCompany360(symbol) {
   }
 
   const generatedAt = new Date().toISOString();
-  const [provider, news] = await Promise.all([loadCompany360Data(symbol), loadCompany360News(symbol)]);
-  const identitySource = company.verifiedSources.join(' + ') || 'Verified company master';
+  const [provider, news, liveMetadata] = await Promise.all([
+    loadCompany360Data(symbol),
+    loadCompany360News(symbol),
+    fetchNseQuoteMetadata(symbol)
+  ]);
+
+  const identitySource = liveMetadata?.isin
+    ? `${company.verifiedSources.join(' + ') || 'Verified company master'} + NSE live quote metadata`
+    : company.verifiedSources.join(' + ') || 'Verified company master';
   const management = buildManagement(provider);
   const disclosuresNews = buildDisclosuresNews(news);
 
   const result = {
     success: true,
-    schemaVersion: '1.4.0',
+    schemaVersion: '1.5.0',
     symbol,
     generatedAt,
     data_policy: 'strict-zero-fake-data',
     profile: {
       symbol: company.nseSymbol || company.bseSymbol || symbol,
-      company_name: company.name || null,
-      isin: company.isin || null,
+      company_name: liveMetadata?.company_name || company.name || null,
+      isin: liveMetadata?.isin || company.isin || null,
       exchange: company.exchange || null,
-      industry: missingField(),
+      industry: liveMetadata?.industry ? { value: liveMetadata.industry, verified: true, source: liveMetadata.source, as_of_date: liveMetadata.as_of_date } : missingField(),
       sector: missingField(),
-      listing_date: missingField(),
+      listing_date: liveMetadata?.listing_date ? { value: liveMetadata.listing_date, verified: true, source: liveMetadata.source, as_of_date: liveMetadata.as_of_date } : missingField(),
       face_value: missingField(),
-      data_status: { verified: true, source: identitySource, as_of_date: generatedAt }
+      data_status: {
+        verified: true,
+        source: identitySource,
+        as_of_date: liveMetadata?.as_of_date || generatedAt,
+        isin_live: Boolean(liveMetadata?.isin),
+        isin_notice: liveMetadata?.isin ? null : 'Live NSE ISIN metadata was unavailable; no ISIN was fabricated.'
+      }
     },
     trading_overview: {
       previous_close: missingField('Awaiting live feed'),
@@ -140,6 +193,7 @@ async function getCompany360(symbol) {
     disclosures_news: disclosuresNews,
     sources: {
       verified_universe: universe.sources,
+      identity: liveMetadata?.isin ? liveMetadata.source : null,
       financials: provider.verified ? provider.source : null,
       shareholding: provider.verified ? provider.source : null,
       corporate_actions: provider.verified && provider.corporate_actions.length ? provider.source : null,
@@ -184,5 +238,6 @@ module.exports = {
   buildManagement,
   emptyManagement,
   buildDisclosuresNews,
-  emptyDisclosuresNews
+  emptyDisclosuresNews,
+  fetchNseQuoteMetadata
 };
