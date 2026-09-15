@@ -21,6 +21,17 @@ function findCompany(rows, symbol) {
   return rows.find(company => String(company.nseSymbol || '').toUpperCase() === symbol || String(company.bseSymbol || '').toUpperCase() === symbol || String(company.bseCode || '').toUpperCase() === symbol);
 }
 
+function normalizeIsin(value) {
+  if (typeof value === 'string') {
+    const isin = value.trim().toUpperCase();
+    return /^IN[A-Z0-9]{10}$/.test(isin) ? isin : null;
+  }
+  if (value && typeof value === 'object') {
+    return normalizeIsin(value.value ?? value.isin ?? value.code ?? null);
+  }
+  return null;
+}
+
 function fetchNseQuoteMetadata(symbol) {
   return new Promise((resolve) => {
     const url = `https://www.nseindia.com/api/quote-equity?symbol=${encodeURIComponent(symbol)}`;
@@ -41,8 +52,8 @@ function fetchNseQuoteMetadata(symbol) {
           const payload = JSON.parse(body);
           const metadata = payload?.metadata || {};
           const info = payload?.info || {};
-          const isin = String(metadata.isin || info.isin || '').trim().toUpperCase();
-          if (!/^IN[A-Z0-9]{10}$/.test(isin)) return resolve(null);
+          const isin = normalizeIsin(metadata.isin || info.isin);
+          if (!isin) return resolve(null);
           resolve({
             isin,
             company_name: String(metadata.companyName || info.companyName || '').trim() || null,
@@ -149,6 +160,8 @@ async function getCompany360(symbol) {
     fetchNseQuoteMetadata(symbol)
   ]);
 
+  const localIsin = normalizeIsin(company.isin);
+  const resolvedIsin = liveMetadata?.isin || localIsin;
   const identitySource = liveMetadata?.isin
     ? `${company.verifiedSources.join(' + ') || 'Verified company master'} + NSE live quote metadata`
     : company.verifiedSources.join(' + ') || 'Verified company master';
@@ -164,7 +177,7 @@ async function getCompany360(symbol) {
     profile: {
       symbol: company.nseSymbol || company.bseSymbol || symbol,
       company_name: liveMetadata?.company_name || company.name || null,
-      isin: liveMetadata?.isin || company.isin || null,
+      isin: resolvedIsin,
       exchange: company.exchange || null,
       industry: liveMetadata?.industry ? { value: liveMetadata.industry, verified: true, source: liveMetadata.source, as_of_date: liveMetadata.as_of_date } : missingField(),
       sector: missingField(),
@@ -175,7 +188,7 @@ async function getCompany360(symbol) {
         source: identitySource,
         as_of_date: liveMetadata?.as_of_date || generatedAt,
         isin_live: Boolean(liveMetadata?.isin),
-        isin_notice: liveMetadata?.isin ? null : 'Live NSE ISIN metadata was unavailable; no ISIN was fabricated.'
+        isin_notice: resolvedIsin ? null : 'Live NSE ISIN metadata was unavailable; no ISIN was fabricated.'
       }
     },
     trading_overview: {
@@ -231,6 +244,7 @@ module.exports = {
   registerCompany360Routes,
   getCompany360,
   sanitizeSymbol,
+  normalizeIsin,
   buildFinancials,
   buildShareholding,
   buildCorporateActions,
