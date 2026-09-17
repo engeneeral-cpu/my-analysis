@@ -6,62 +6,23 @@
 
   let timer = null;
   let controller = null;
-
-  const esc = value => String(value ?? '').replace(/[&<>\"']/g, char => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;'
-  }[char]));
-
+  const esc = value => String(value ?? '').replace(/[&<>\"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;'}[char]));
   const render = list => {
-    if (!list.length) {
-      results.innerHTML = '<div class="market-search-empty">No verified company match found.</div>';
-      results.classList.add('show');
-      return;
-    }
-    results.innerHTML = list.slice(0, 8).map(company => {
-      const symbol = company.nseSymbol || company.symbol || '';
-      const profileSymbol = symbol || company.bseSymbol || '';
-      const exchanges = (company.exchanges || []).join(' + ') || company.exchange || '—';
-      return `<a class="market-search-result" role="option" href="company-profile.html?symbol=${encodeURIComponent(profileSymbol)}"><span><strong>${esc(company.name)}</strong><small>${esc(symbol ? `NSE ${symbol}` : 'NSE —')} · ${esc(exchanges)} · ISIN ${esc(company.isin || '—')}</small></span><b>→</b></a>`;
-    }).join('');
-    results.classList.add('show');
+    if (!list.length) { results.innerHTML='<div class="market-search-empty">No verified company match found.</div>'; results.classList.add('show'); return; }
+    results.innerHTML=list.slice(0,8).map(company=>{const symbol=company.nseSymbol||company.symbol||'';const profileSymbol=symbol||company.bseSymbol||'';const exchanges=(company.exchanges||[]).join(' + ')||company.exchange||'—';return `<a class="market-search-result" role="option" href="company-profile.html?symbol=${encodeURIComponent(profileSymbol)}"><span><strong>${esc(company.name)}</strong><small>${esc(symbol?`NSE ${symbol}`:'NSE —')} · ${esc(exchanges)} · ISIN ${esc(company.isin||'—')}</small></span><b>→</b></a>`}).join(''); results.classList.add('show');
   };
-
   const search = async value => {
-    const q = value.trim();
-    if (q.length < 2) {
-      results.innerHTML = '';
-      results.classList.remove('show');
-      return;
-    }
-    if (controller) controller.abort();
-    controller = new AbortController();
-    results.innerHTML = '<div class="market-search-loading">Searching verified NSE + BSE universe…</div>';
-    results.classList.add('show');
-    try {
-      const response = await fetch(`/api/companies?limit=20&q=${encodeURIComponent(q)}&exchange=all`, {
-        cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) throw new Error(data?.error || 'Company search unavailable');
-      render(data.results || []);
-    } catch (error) {
-      if (error.name === 'AbortError') return;
-      results.innerHTML = '<div class="market-search-empty">Verified company search is temporarily unavailable.</div>';
-      results.classList.add('show');
-    }
+    const q=value.trim(); if(q.length<2){results.innerHTML='';results.classList.remove('show');return;}
+    if(controller)controller.abort(); controller=new AbortController(); results.innerHTML='<div class="market-search-loading">Searching verified NSE + BSE universe…</div>'; results.classList.add('show');
+    try{const response=await fetch(`/api/companies?limit=20&q=${encodeURIComponent(q)}&exchange=all`,{cache:'no-store',headers:{Accept:'application/json'},signal:controller.signal});const data=await response.json();if(!response.ok||!data.success)throw new Error(data?.error||'Company search unavailable');render(data.results||[])}catch(error){if(error.name==='AbortError')return;results.innerHTML='<div class="market-search-empty">Verified company search is temporarily unavailable.</div>';results.classList.add('show')}
   };
+  input.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>search(input.value),220)}); form.addEventListener('submit',event=>{event.preventDefault();search(input.value)}); document.addEventListener('click',event=>{if(!event.target.closest('.market-search'))results.classList.remove('show')}); input.addEventListener('focus',()=>{if(results.innerHTML.trim())results.classList.add('show')});
 
-  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => search(input.value), 220); });
-  form.addEventListener('submit', event => { event.preventDefault(); search(input.value); });
-  document.addEventListener('click', event => { if (!event.target.closest('.market-search')) results.classList.remove('show'); });
-  input.addEventListener('focus', () => { if (results.innerHTML.trim()) results.classList.add('show'); });
-
-  // Keep authentication access visible on every Market Analysis page.
-  const header = document.querySelector('main > header');
-  if (header && !header.querySelector('.auth-actions')) {
-    const actions = document.createElement('div');
-    actions.className = 'auth-actions';
-    actions.innerHTML = '<a class="auth-login-link" href="login.html">Log in</a><a class="auth-signup-link" href="login.html">Sign up</a>';
-    header.appendChild(actions);
+  const header=document.querySelector('main > header');
+  if(header&&!header.querySelector('.auth-actions')){
+    const style=document.createElement('style');
+    style.textContent='.auth-actions{display:flex;align-items:center;gap:8px;margin-left:auto;margin-right:4px}.auth-actions a{display:inline-flex;align-items:center;justify-content:center;text-decoration:none;font-size:12px;font-weight:800;border-radius:10px;padding:9px 13px;white-space:nowrap}.auth-login-link{color:#dbe7ff;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.03)}.auth-signup-link{color:#07100e;background:linear-gradient(135deg,#e7c36a,#28e6b0)}@media(max-width:650px){.auth-actions a{padding:8px 9px;font-size:11px}.auth-actions{gap:5px}.talk-head{display:none}}';
+    document.head.appendChild(style);
+    const actions=document.createElement('div');actions.className='auth-actions';actions.innerHTML='<a class="auth-login-link" href="login.html">Log in</a><a class="auth-signup-link" href="login.html">Sign up</a>';header.appendChild(actions);
   }
 })();
