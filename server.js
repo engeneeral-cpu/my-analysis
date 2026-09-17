@@ -16,6 +16,7 @@ const { registerExchangeCalendarRoutes } = require('./exchange-calendar');
 const { registerAIChatRoutes } = require('./ai-chat-routes');
 const { providerStatus, targetStatus, analyze: analyzeTara } = require('./tara-intelligence-engine');
 const { answer: answerKnowledge } = require('./tara-knowledge-engine');
+const { initAuditStore, status: auditStatus } = require('./audit-log');
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
@@ -31,9 +32,11 @@ const apiLimiter=rateLimit({windowMs:60000,limit:120,standardHeaders:'draft-8',l
 const authLimiter=rateLimit({windowMs:15*60*1000,limit:20,standardHeaders:'draft-8',legacyHeaders:false,message:{success:false,error:'Too many authentication attempts. Please try again later.'}}); app.use('/api/auth',authLimiter);
 app.use(express.static(__dirname,{dotfiles:'deny',etag:true,maxAge:0,setHeaders(res,filePath){res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Permissions-Policy','camera=(), microphone=(self), geolocation=()');if(/\.(?:html?|js|css)$/.test(filePath))res.setHeader('Cache-Control','no-cache');else res.setHeader('Cache-Control','public, max-age=3600');}}));
 registerAuthRoutes(app); registerCompanyRoutes(app); registerCompanyIntelligenceRoutes(app); registerCompany360Routes(app); registerLiveMarketRoutes(app); registerMarketPipelineRoutes(app); registerMarketResilienceRoutes(app); registerMarketHistoryRoutes(app); registerHistoricalOHLCVRoutes(app); registerExchangeCalendarRoutes(app); registerAIChatRoutes(app);
+initAuditStore();
 let verifiedMarketData={nifty:null,equities:[]}; function validateMarketDataset(d){return !!d&&Array.isArray(d.equities);}
 app.get('/api/health',(req,res)=>res.json({success:true,service:'tara-ai',status:'ok',release:RELEASE,time:new Date().toISOString()}));
 app.get('/api/security-status',(req,res)=>res.json({success:true,security:{headers:true,rateLimiting:true,strictBodyLimits:true,poweredByHidden:true,productionHsts:isProduction,secretsInEnvironmentOnly:true,microphonePolicy:'self'},release:RELEASE,note:'Security controls are enabled; independent penetration testing is still required before production launch.'}));
+app.get('/api/audit/status',(req,res)=>res.json({success:true,release:RELEASE,audit:auditStatus()}));
 app.get('/api/tara-intelligence/status',(req,res)=>res.json({success:true,engine:'Tara Intelligence Engine',release:RELEASE,providers:providerStatus(),targets:targetStatus(),policy:'verified-data-only'}));
 app.post('/api/tara-intelligence/analyze',(req,res)=>{try{const symbol=String(req.body?.symbol||'').trim();if(!symbol)return res.status(400).json({success:false,error:'Company symbol is required.'});return res.json(analyzeTara(req.body));}catch(e){return res.status(400).json({success:false,error:e.message});}});
 app.post('/api/tara-knowledge/answer',(req,res)=>{const query=String(req.body?.query||'').trim().slice(0,500);if(!query)return res.status(400).json({success:false,error:'Query is required.'});return res.json({success:true,...answerKnowledge(query)});});
