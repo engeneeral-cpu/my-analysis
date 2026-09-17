@@ -1,4 +1,5 @@
 const https = require('https');
+const { enrichNewsItems } = require('./news-sentiment');
 
 const REQUEST_TIMEOUT_MS = 20000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
@@ -60,23 +61,24 @@ function normalizeNewsItem(item) {
 function normalizeNewsPayload(raw) {
   if (!raw || typeof raw !== 'object' || raw.verified !== true || !SOURCES.has(raw.source) || !isDateTime(raw.as_of_date)) return null;
   if (!Array.isArray(raw.items)) return null;
-  const items = raw.items.map(normalizeNewsItem).filter(Boolean).slice(0, 100);
+  const items = enrichNewsItems(raw.items.map(normalizeNewsItem).filter(Boolean).slice(0, 100));
   return {
     verified: true,
     source: raw.source,
     as_of_date: raw.as_of_date,
+    sentimentMethod: 'transparent-keyword-heuristic-v1',
     items
   };
 }
 
 async function loadCompany360News(symbol) {
   const template = String(process.env.COMPANY_360_NEWS_URL || '').trim();
-  if (!template) return { verified: false, source: null, as_of_date: null, items: [] };
+  if (!template) return { verified: false, source: null, as_of_date: null, sentimentMethod: null, items: [] };
   const url = template.includes('{symbol}') ? template.replaceAll('{symbol}', encodeURIComponent(symbol)) : template;
   try {
-    return normalizeNewsPayload(await requestJson(url)) || { verified: false, source: null, as_of_date: null, items: [] };
+    return normalizeNewsPayload(await requestJson(url)) || { verified: false, source: null, as_of_date: null, sentimentMethod: null, items: [] };
   } catch {
-    return { verified: false, source: null, as_of_date: null, items: [] };
+    return { verified: false, source: null, as_of_date: null, sentimentMethod: null, items: [] };
   }
 }
 
