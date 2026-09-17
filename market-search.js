@@ -7,8 +7,8 @@
   let timer = null;
   let controller = null;
 
-  const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  const esc = value => String(value ?? '').replace(/[&<>\"']/g, char => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', "'": '&#39;'
   }[char]));
 
   const render = list => {
@@ -39,9 +39,7 @@
     results.classList.add('show');
     try {
       const response = await fetch(`/api/companies?limit=20&q=${encodeURIComponent(q)}&exchange=all`, {
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
-        signal: controller.signal
+        cache: 'no-store', headers: { Accept: 'application/json' }, signal: controller.signal
       });
       const data = await response.json();
       if (!response.ok || !data.success) throw new Error(data?.error || 'Company search unavailable');
@@ -53,21 +51,17 @@
     }
   };
 
-  input.addEventListener('input', () => {
-    clearTimeout(timer);
-    timer = setTimeout(() => search(input.value), 220);
-  });
+  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(() => search(input.value), 220); });
+  form.addEventListener('submit', event => { event.preventDefault(); search(input.value); });
+  document.addEventListener('click', event => { if (!event.target.closest('.market-search')) results.classList.remove('show'); });
+  input.addEventListener('focus', () => { if (results.innerHTML.trim()) results.classList.add('show'); });
 
-  form.addEventListener('submit', event => {
-    event.preventDefault();
-    search(input.value);
-  });
-
-  document.addEventListener('click', event => {
-    if (!event.target.closest('.market-search')) results.classList.remove('show');
-  });
-
-  input.addEventListener('focus', () => {
-    if (results.innerHTML.trim()) results.classList.add('show');
-  });
+  // Keep authentication access visible on every Market Analysis page.
+  const header = document.querySelector('main > header');
+  if (header && !header.querySelector('.auth-actions')) {
+    const actions = document.createElement('div');
+    actions.className = 'auth-actions';
+    actions.innerHTML = '<a class="auth-login-link" href="login.html">Log in</a><a class="auth-signup-link" href="login.html">Sign up</a>';
+    header.appendChild(actions);
+  }
 })();
