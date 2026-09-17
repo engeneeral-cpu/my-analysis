@@ -1,103 +1,34 @@
 const crypto = require('crypto');
-
 const attempts = new Map();
 const sessions = new Map();
+const users = new Map();
 const WINDOW_MS = 10 * 60 * 1000;
 const MAX_SENDS = 3;
+let pgPool = null;
+let dbReady = false;
 
-function normalizePhone(value) {
-  const digits = String(value || '').replace(/\D/g, '');
-  return digits.length === 10 ? `+91${digits}` : null;
-}
-
-function allowSend(key) {
-  const now = Date.now();
-  const current = attempts.get(key) || { count: 0, resetAt: now + WINDOW_MS };
-  if (now > current.resetAt) {
-    current.count = 0;
-    current.resetAt = now + WINDOW_MS;
-  }
-  if (current.count >= MAX_SENDS) return false;
-  current.count += 1;
-  attempts.set(key, current);
-  return true;
-}
-
-function credentialsReady() {
-  return Boolean(
-    process.env.TWILIO_ACCOUNT_SID &&
-    process.env.TWILIO_AUTH_TOKEN &&
-    process.env.TWILIO_VERIFY_SERVICE_SID
-  );
-}
-
-async function twilioRequest(path, params) {
-  const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64');
-  const body = new URLSearchParams(params);
-  const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/${path}`, {
-    method: 'POST',
-    headers: { Authorization: `Basic ${auth}`, 'Content-Type': 'application/x-www-form-urlencoded' },
-    body
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const error = new Error(data.message || 'Verification provider error');
-    error.status = response.status;
-    throw error;
-  }
-  return data;
-}
-
-function createSession(phone) {
-  const token = crypto.randomBytes(32).toString('hex');
-  sessions.set(token, { phone, createdAt: Date.now() });
-  return token;
-}
-
-function readSessionCookie(req) {
-  const header = req.headers.cookie || '';
-  const match = header.split(';').map(v => v.trim()).find(v => v.startsWith('aarohi_session='));
-  return match ? decodeURIComponent(match.slice('aarohi_session='.length)) : null;
-}
+function normalizePhone(value) { const digits = String(value || '').replace(/\D/g, ''); return digits.length === 10 ? `+91${digits}` : null; }
+function normalizeEmail(value) { const email = String(value || '').trim().toLowerCase(); return /^\S+@\S+\.\S+$/.test(email) ? email : null; }
+function allowSend(key) { const now = Date.now(); const current = attempts.get(key) || { count: 0, resetAt: now + WINDOW_MS }; if (now > current.resetAt) { current.count = 0; current.resetAt = now + WINDOW_MS; } if (current.count >= MAX_SENDS) return false; current.count += 1; attempts.set(key, current); return true; }
+function credentialsReady() { return Boolean(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_VERIFY_SERVICE_SID); }
+async function twilioRequest(path, params) { const auth = Buffer.from(`${process.env.TWILIO_ACCOUNT_SID}:${process.env.TWILIO_AUTH_TOKEN}`).toString('base64'); const body = new URLSearchParams(params); const response = await fetch(`https://verify.twilio.com/v2/Services/${process.env.TWILIO_VERIFY_SERVICE_SID}/${path}`, { method:'POST', headers:{Authorization:`Basic ${auth}`,'Content-Type':'application/x-www-form-urlencoded'}, body }); const data = await response.json().catch(()=>({})); if (!response.ok) { const error = new Error(data.message || 'Verification provider error'); error.status=response.status; throw error; } return data; }
+function createSession(identity) { const token=crypto.randomBytes(32).toString('hex'); sessions.set(token,{identity,createdAt:Date.now()}); return token; }
+function setSession(res, identity) { const token=createSession(identity); res.setHeader('Set-Cookie',`aarohi_session=${encodeURIComponent(token)}; Max-Age=28800; Path=/; HttpOnly; Secure; SameSite=Lax`); }
+function readSessionCookie(req) { const header=req.headers.cookie||''; const match=header.split(';').map(v=>v.trim()).find(v=>v.startsWith('aarohi_session=')); return match ? decodeURIComponent(match.slice('aarohi_session='.length)) : null; }
+function passwordHash(password,salt=crypto.randomBytes(16).toString('hex')) { const hash=crypto.scryptSync(String(password),salt,64).toString('hex'); return {salt,hash}; }
+function passwordMatches(password,record) { try { const actual=crypto.scryptSync(String(password),record.salt,64); const expected=Buffer.from(record.hash,'hex'); return actual.length===expected.length && crypto.timingSafeEqual(actual,expected); } catch { return false; } }
+async function initDb() { const url=process.env.POSTGRES_URL || process.env.DATABASE_URL; if (!url) return; try { const {Pool}=require('pg'); pgPool=new Pool({connectionString:url,ssl:process.env.NODE_ENV==='production'?{rejectUnauthorized:false}:undefined,max:5}); await pgPool.query(`CREATE TABLE IF NOT EXISTS market_analysis_users (id BIGSERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, password_salt TEXT NOT NULL, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW())`); dbReady=true; console.log('[Auth] PostgreSQL user store ready'); } catch(error) { console.error('[Auth] PostgreSQL initialization failed:',error.message); pgPool=null; dbReady=false; } }
+async function findUser(email) { if (dbReady) { const r=await pgPool.query('SELECT name,email,password_hash,password_salt FROM market_analysis_users WHERE email=$1 LIMIT 1',[email]); return r.rows[0]||null; } return users.get(email)||null; }
+async function createUser(name,email,password) { const record=passwordHash(password); if (dbReady) { const r=await pgPool.query('INSERT INTO market_analysis_users (name,email,password_hash,password_salt) VALUES ($1,$2,$3,$4) RETURNING name,email',[name,email,record.hash,record.salt]); return r.rows[0]; } if (users.has(email)) { const error=new Error('An account with this email already exists.'); error.code='DUPLICATE'; throw error; } const user={name,email,password_hash:record.hash,password_salt:record.salt}; users.set(email,user); return {name,email}; }
 
 function registerAuthRoutes(app) {
-  app.post('/api/auth/send-otp', async (req, res) => {
-    const phone = normalizePhone(req.body.phone);
-    if (!phone) return res.status(400).json({ success: false, error: 'Enter a valid 10-digit Indian mobile number.' });
-    if (!credentialsReady()) return res.status(503).json({ success: false, error: 'OTP service is not configured on the server yet.' });
-    if (!allowSend(phone)) return res.status(429).json({ success: false, error: 'Too many OTP requests. Please try again later.' });
-    try {
-      const result = await twilioRequest('Verifications', { To: phone, Channel: 'sms' });
-      return res.json({ success: true, status: result.status || 'pending', message: 'OTP sent successfully.' });
-    } catch (error) {
-      console.error('[OTP send]', error.message);
-      return res.status(error.status === 429 ? 429 : 502).json({ success: false, error: 'Unable to send OTP right now. Please try again.' });
-    }
-  });
-
-  app.post('/api/auth/verify-otp', async (req, res) => {
-    const phone = normalizePhone(req.body.phone);
-    const code = String(req.body.code || '').replace(/\D/g, '');
-    if (!phone || !/^\d{6}$/.test(code)) return res.status(400).json({ success: false, error: 'Enter a valid mobile number and 6-digit OTP.' });
-    if (!credentialsReady()) return res.status(503).json({ success: false, error: 'OTP service is not configured on the server yet.' });
-    try {
-      const result = await twilioRequest('VerificationCheck', { To: phone, Code: code });
-      if (result.status !== 'approved') return res.status(401).json({ success: false, error: 'Invalid or expired OTP.' });
-      const session = createSession(phone);
-      res.setHeader('Set-Cookie', `aarohi_session=${encodeURIComponent(session)}; Max-Age=28800; Path=/; HttpOnly; Secure; SameSite=Lax`);
-      return res.json({ success: true, authenticated: true, message: 'Phone verified successfully.' });
-    } catch (error) {
-      console.error('[OTP verify]', error.message);
-      return res.status(error.status === 404 ? 401 : 502).json({ success: false, error: 'OTP verification failed. Check the code and try again.' });
-    }
-  });
-
-  app.get('/api/auth/session', (req, res) => {
-    const token = readSessionCookie(req);
-    const session = token ? sessions.get(token) : null;
-    if (!session || Date.now() - session.createdAt > 8 * 60 * 60 * 1000) return res.status(401).json({ authenticated: false });
-    res.json({ authenticated: true, phone: `${session.phone.slice(0, 3)}******${session.phone.slice(-2)}` });
-  });
+  initDb();
+  app.post('/api/auth/email/signup', async (req,res)=>{ const name=String(req.body?.name||'').trim().slice(0,80), email=normalizeEmail(req.body?.email), password=String(req.body?.password||''); if(name.length<2)return res.status(400).json({success:false,error:'Enter your name.'}); if(!email)return res.status(400).json({success:false,error:'Enter a valid email address.'}); if(password.length<8)return res.status(400).json({success:false,error:'Password must be at least 8 characters.'}); try { const user=await createUser(name,email,password); setSession(res,{type:'email',email:user.email,name:user.name}); return res.status(201).json({success:true,authenticated:true,user:{email:user.email,name:user.name}}); } catch(error) { if(error.code==='DUPLICATE'||error.code==='23505')return res.status(409).json({success:false,error:'An account with this email already exists. Please log in.'}); console.error('[Email signup]',error.message); return res.status(500).json({success:false,error:'Unable to create your account right now.'}); } });
+  app.post('/api/auth/email/login', async (req,res)=>{ const email=normalizeEmail(req.body?.email), password=String(req.body?.password||''); if(!email||password.length<8)return res.status(400).json({success:false,error:'Enter a valid email and password.'}); try { const user=await findUser(email); if(!user||!passwordMatches(password,{hash:user.password_hash,salt:user.password_salt}))return res.status(401).json({success:false,error:'Invalid email or password.'}); setSession(res,{type:'email',email:user.email,name:user.name}); return res.json({success:true,authenticated:true,user:{email:user.email,name:user.name}}); } catch(error) { console.error('[Email login]',error.message); return res.status(500).json({success:false,error:'Unable to sign in right now.'}); } });
+  app.post('/api/auth/email/forgot',(req,res)=>{ const email=normalizeEmail(req.body?.email); if(!email)return res.status(400).json({success:false,error:'Enter a valid email address.'}); return res.status(501).json({success:false,error:'Password reset email service is not configured yet. Use your existing password or contact support.'}); });
+  app.post('/api/auth/send-otp', async (req,res)=>{ const phone=normalizePhone(req.body.phone); if(!phone)return res.status(400).json({success:false,error:'Enter a valid 10-digit Indian mobile number.'}); if(!credentialsReady())return res.status(503).json({success:false,error:'OTP service is not configured on the server yet.'}); if(!allowSend(phone))return res.status(429).json({success:false,error:'Too many OTP requests. Please try again later.'}); try { const result=await twilioRequest('Verifications',{To:phone,Channel:'sms'}); return res.json({success:true,status:result.status||'pending',message:'OTP sent successfully.'}); } catch(error) { console.error('[OTP send]',error.message); return res.status(error.status===429?429:502).json({success:false,error:'Unable to send OTP right now. Please try again.'}); } });
+  app.post('/api/auth/verify-otp', async (req,res)=>{ const phone=normalizePhone(req.body.phone), code=String(req.body.code||'').replace(/\D/g,''); if(!phone||!/^\d{6}$/.test(code))return res.status(400).json({success:false,error:'Enter a valid mobile number and 6-digit OTP.'}); if(!credentialsReady())return res.status(503).json({success:false,error:'OTP service is not configured on the server yet.'}); try { const result=await twilioRequest('VerificationCheck',{To:phone,Code:code}); if(result.status!=='approved')return res.status(401).json({success:false,error:'Invalid or expired OTP.'}); setSession(res,{type:'phone',phone}); return res.json({success:true,authenticated:true,message:'Phone verified successfully.'}); } catch(error) { console.error('[OTP verify]',error.message); return res.status(error.status===404?401:502).json({success:false,error:'OTP verification failed. Check the code and try again.'}); } });
+  app.get('/api/auth/session',(req,res)=>{ const token=readSessionCookie(req),session=token?sessions.get(token):null; if(!session||Date.now()-session.createdAt>8*60*60*1000)return res.status(401).json({authenticated:false}); const identity=session.identity; return res.json({authenticated:true,type:identity.type,email:identity.email||null,name:identity.name||null,phone:identity.phone?`${identity.phone.slice(0,3)}******${identity.phone.slice(-2)}`:null}); });
+  app.post('/api/auth/logout',(req,res)=>{ const token=readSessionCookie(req); if(token)sessions.delete(token); res.setHeader('Set-Cookie','aarohi_session=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Lax'); res.json({success:true}); });
 }
-
-module.exports = { registerAuthRoutes };
+module.exports={registerAuthRoutes};
