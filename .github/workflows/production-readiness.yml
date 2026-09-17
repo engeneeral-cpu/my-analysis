@@ -30,6 +30,9 @@ jobs:
       - name: Syntax tests
         run: npm run test:syntax
 
+      - name: Native intelligence contracts
+        run: npm run test:knowledge && npm run test:sentiment
+
       - name: Dependency audit (high/critical gate)
         run: npm audit --audit-level=high
 
@@ -66,6 +69,16 @@ jobs:
             exit 1
           fi
           curl --fail --silent --show-error --connect-timeout 2 --max-time 5 http://127.0.0.1:4000/api/health
+
+      - name: Core runtime status checks
+        env:
+          TARA_BASE_URL: http://127.0.0.1:4000
+        run: |
+          for endpoint in /api/security-status /api/tara-intelligence/status /api/tara-knowledge/status /api/exchange-calendar/status /api/live-market/status /api/companies/status; do
+            echo "Checking $endpoint"
+            curl --fail --silent --show-error "$TARA_BASE_URL$endpoint" | tee /tmp/runtime-check.json
+            node -e "const fs=require('fs'); const d=JSON.parse(fs.readFileSync('/tmp/runtime-check.json','utf8')); if(d.success!==true) process.exit(1);"
+          done
 
       - name: Company 360 smoke check
         env:
