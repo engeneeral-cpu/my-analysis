@@ -1,11 +1,11 @@
 {
   "name": "tara-ai-market-intelligence",
-  "version": "3.1.0",
+  "version": "3.2.0",
   "description": "Tara AI source-backed Indian market intelligence platform",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test:syntax": "node --check server.js && node --check tara-chat-intent.js && node --check scripts/tara-chat-intent-contract.js && node scripts/tara-chat-intent-contract.js && node --check ai-chat-routes.js && node --check company-360-routes.js && node --check company-360-data-service.js && node --check company-360-news-service.js && node --check scripts/company-360-contract.js && node --check scripts/company-360-news-contract.js && node --check scripts/management-contract.js && node --check scripts/company-360-integration.js && node --check historical-ohlcv-routes.js && node --check historical-ohlcv-chart.js && node --check scripts/historical-ohlcv-contract.js && node scripts/historical-ohlcv-contract.js && node --check scripts/historical-ohlcv-integration.js && node --check services/historical-storage-adapter.js && node --check scripts/historical-storage-adapter-contract.js && node scripts/historical-storage-adapter-contract.js && node --check scripts/bhavcopy-ingester.js && node --check scripts/bhavcopy-ingester-contract.js && node scripts/bhavcopy-ingester-contract.js && node --check scripts/production-readiness.js",
+    "test:syntax": "node --check server.js && node --check tara-chat-intent.js && node --check scripts/tara-chat-intent-contract.js && node scripts/tara-chat-intent-contract.js && node --check ai-chat-routes.js && node --check company-360-routes.js && node --check company-360-data-service.js && node --check company-360-news-service.js && node --check news-sentiment.js && node --check tara-knowledge-engine.js && node --check scripts/company-360-contract.js && node --check scripts/company-360-news-contract.js && node --check scripts/management-contract.js && node --check scripts/company-360-integration.js && node --check historical-ohlcv-routes.js && node --check historical-ohlcv-chart.js && node --check scripts/historical-ohlcv-contract.js && node scripts/historical-ohlcv-contract.js && node --check scripts/historical-ohlcv-integration.js && node --check services/historical-storage-adapter.js && node --check scripts/historical-storage-adapter-contract.js && node scripts/historical-storage-adapter-contract.js && node --check scripts/bhavcopy-ingester.js && node --check scripts/bhavcopy-ingester-contract.js && node scripts/bhavcopy-ingester-contract.js && node --check scripts/production-readiness.js",
     "test:company-360": "node scripts/company-360-contract.js && node scripts/company-360-news-contract.js && node scripts/management-contract.js",
     "test:company-360:integration": "node scripts/company-360-integration.js",
     "test:company-360:verify": "npm run test:company-360 && npm run test:company-360:integration",
@@ -14,6 +14,8 @@
     "test:historical-ohlcv:integration": "node scripts/historical-ohlcv-integration.js",
     "test:bhavcopy": "node --check scripts/bhavcopy-ingester.js && node --check scripts/bhavcopy-ingester-contract.js && node scripts/bhavcopy-ingester-contract.js",
     "test:management": "node scripts/management-contract.js",
+    "test:knowledge": "node --check tara-knowledge-engine.js && node -e \"const k=require('./tara-knowledge-engine'); if(!k.answer('What is P/E ratio?').found || k.answer('What is P/E ratio?').educational!==true) process.exit(1); console.log('Knowledge engine OK')\"",
+    "test:sentiment": "node --check news-sentiment.js && node -e \"const s=require('./news-sentiment'); if(s.scoreText('record profit growth').label!=='POSITIVE'||s.scoreText('loss decline').label!=='NEGATIVE'||s.scoreText('company update').label!=='NEUTRAL') process.exit(1); console.log('Sentiment engine OK')\"",
     "test:production": "node scripts/production-readiness.js"
   },
   "dependencies": {
