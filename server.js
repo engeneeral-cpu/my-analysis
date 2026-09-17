@@ -15,6 +15,7 @@ const { registerHistoricalOHLCVRoutes } = require('./historical-ohlcv-routes');
 const { registerExchangeCalendarRoutes } = require('./exchange-calendar');
 const { registerAIChatRoutes } = require('./ai-chat-routes');
 const { providerStatus, targetStatus, analyze: analyzeTara } = require('./tara-intelligence-engine');
+const { answer: answerKnowledge } = require('./tara-knowledge-engine');
 
 const app = express();
 const PORT = Number(process.env.PORT || 4000);
@@ -35,8 +36,10 @@ app.get('/api/health',(req,res)=>res.json({success:true,service:'tara-ai',status
 app.get('/api/security-status',(req,res)=>res.json({success:true,security:{headers:true,rateLimiting:true,strictBodyLimits:true,poweredByHidden:true,productionHsts:isProduction,secretsInEnvironmentOnly:true,microphonePolicy:'self'},release:RELEASE,note:'Security controls are enabled; independent penetration testing is still required before production launch.'}));
 app.get('/api/tara-intelligence/status',(req,res)=>res.json({success:true,engine:'Tara Intelligence Engine',release:RELEASE,providers:providerStatus(),targets:targetStatus(),policy:'verified-data-only'}));
 app.post('/api/tara-intelligence/analyze',(req,res)=>{try{const symbol=String(req.body?.symbol||'').trim();if(!symbol)return res.status(400).json({success:false,error:'Company symbol is required.'});return res.json(analyzeTara(req.body));}catch(e){return res.status(400).json({success:false,error:e.message});}});
+app.post('/api/tara-knowledge/answer',(req,res)=>{const query=String(req.body?.query||'').trim().slice(0,500);if(!query)return res.status(400).json({success:false,error:'Query is required.'});return res.json({success:true,...answerKnowledge(query)});});
+app.get('/api/tara-knowledge/status',(req,res)=>res.json({success:true,engine:'Tara Finance Knowledge Engine',mode:'native-educational',verified:true,topics:'core finance concepts',investmentAdvice:false}));
 app.get('/api/market-data',(req,res)=>validateMarketDataset(verifiedMarketData)?res.json({success:true,timestamp:new Date().toISOString(),data:verifiedMarketData}):res.status(500).json({success:false,error:'Market data validation failed'}));
-app.post('/api/analyze',(req,res)=>{const query=String(req.body?.query||'').trim().slice(0,500);if(!query)return res.status(400).json({success:false,error:'Query is required'});res.json({success:true,aiName:'Tara AI',found:false,text:`Tara AI is ready to research "${query}". Source-backed company intelligence is served through the company API.`});
+app.post('/api/analyze',(req,res)=>{const query=String(req.body?.query||'').trim().slice(0,500);if(!query)return res.status(400).json({success:false,error:'Query is required'});res.json({success:true,aiName:'Tara AI',found:false,text:`Tara AI is ready to research \"${query}\". Source-backed company intelligence is served through the company API.`});
 });
 app.use('/api',(req,res)=>res.status(404).json({success:false,error:'Tara AI API endpoint not found.'}));
 app.use((err,req,res,next)=>{if(err?.message==='CORS origin denied')return res.status(403).json({success:false,error:'Origin not allowed'});console.error('[Tara Security] Request error:',err?.message||'Unknown error');return res.status(500).json({success:false,error:'Internal server error'});});
