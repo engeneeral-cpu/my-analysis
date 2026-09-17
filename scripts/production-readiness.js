@@ -15,7 +15,8 @@ const requiredFiles = [
   'company-intelligence-routes.js', 'company-360-routes.js',
   'live-market-routes.js', 'market-history-routes.js', 'historical-ohlcv-routes.js',
   'services/historical-storage-adapter.js', 'db/ohlcv_daily.sql',
-  'exchange-calendar.js', 'tara-intelligence-engine.js'
+  'exchange-calendar.js', 'tara-intelligence-engine.js', 'tara-knowledge-engine.js',
+  'news-sentiment.js', 'company-360-news-service.js', 'auth-routes.js', 'login.html', 'login.js'
 ];
 
 const requiredEnvKeys = [
@@ -25,7 +26,8 @@ const requiredEnvKeys = [
   'MARKET_HISTORY_LICENSE_STATUS', 'FINANCIAL_DATA_PROVIDER_NAME',
   'NEWS_PROVIDER_NAME', 'BSE_SECURITY_MASTER_URL', 'BSE_SECURITY_MASTER_LICENSE_STATUS',
   'TIMESCALE_DB_URL', 'POSTGRES_URL', 'HISTORICAL_STORAGE_LICENSE_STATUS',
-  'HISTORICAL_STORAGE_DISPLAY_PERMISSION', 'HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION'
+  'HISTORICAL_STORAGE_DISPLAY_PERMISSION', 'HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION',
+  'TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_VERIFY_SERVICE_SID'
 ];
 
 const checks = [];
@@ -37,7 +39,7 @@ function request(url, timeoutMs = 10000) {
   return new Promise((resolve, reject) => {
     const target = new URL(url);
     const lib = target.protocol === 'https:' ? https : http;
-    const req = lib.get(target, { headers: { 'User-Agent': 'TaraAI-ProductionReadiness/1.0' } }, res => {
+    const req = lib.get(target, { headers: { 'User-Agent': 'TaraAI-ProductionReadiness/1.1' } }, res => {
       let body = '';
       res.setEncoding('utf8');
       res.on('data', chunk => { body += chunk; });
@@ -48,9 +50,7 @@ function request(url, timeoutMs = 10000) {
   });
 }
 
-function jsonBody(body) {
-  try { return JSON.parse(body); } catch { return null; }
-}
+function jsonBody(body) { try { return JSON.parse(body); } catch { return null; } }
 
 async function main() {
   for (const file of requiredFiles) check(`file:${file}`, fs.existsSync(path.join(root, file)), 'required production file');
@@ -67,6 +67,8 @@ async function main() {
   check('security:no-powered-by', /disable\(['"]x-powered-by['"]\)/.test(serverText), 'X-Powered-By disabled');
   check('security:health', /\/api\/health/.test(serverText), 'health endpoint present');
   check('security:security-status', /\/api\/security-status/.test(serverText), 'security status endpoint present');
+  check('auth:email', /\/api\/auth\/email\/login/.test(fs.readFileSync(path.join(root, 'auth-routes.js'), 'utf8')), 'email login route present');
+  check('auth:otp', /\/api\/auth\/send-otp/.test(fs.readFileSync(path.join(root, 'auth-routes.js'), 'utf8')), 'mobile OTP route present');
   check('truth:verified-data-policy', /verified-data-only/.test(serverText) || /verified/.test(fs.readFileSync(path.join(root, 'tara-intelligence-engine.js'), 'utf8')), 'verified-data policy present');
 
   const storageText = fs.readFileSync(path.join(root, 'services/historical-storage-adapter.js'), 'utf8');
@@ -79,6 +81,7 @@ async function main() {
   check('render:license-gates', /MARKET_DATA_LICENSE_STATUS/.test(renderText) && /MARKET_DATA_DISPLAY_PERMISSION/.test(renderText), 'market-data license gates configured');
   check('render:bse-license-gate', /BSE_SECURITY_MASTER_LICENSE_STATUS/.test(renderText), 'BSE license gate configured');
   check('render:historical-storage', /TIMESCALE_DB_URL/.test(renderText) && /HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION/.test(renderText), 'authorized historical storage configuration declared');
+  check('render:twilio-otp', /TWILIO_VERIFY_SERVICE_SID/.test(renderText), 'SMS OTP secrets declared');
 
   for (const key of requiredEnvKeys) {
     const inRender = new RegExp(`key:\\s*${key}\\b`).test(renderText);
@@ -90,25 +93,19 @@ async function main() {
     const body = jsonBody(health.body);
     check('runtime:health', health.status === 200 && body?.success === true && body?.status === 'ok', `HTTP ${health.status}`);
     check('runtime:release', typeof body?.release === 'string' && body.release.length > 0, 'release identifier exposed');
-  } catch (err) {
-    check('runtime:health', false, `server unreachable: ${err.message}`);
-  }
+  } catch (err) { check('runtime:health', false, `server unreachable: ${err.message}`); }
 
   const endpointChecks = [
-    ['/api/security-status', 200],
-    ['/api/tara-intelligence/status', 200],
-    ['/api/exchange-calendar/status', 200],
-    ['/api/live-market/status', 200],
-    ['/api/companies/status', 200]
+    ['/api/security-status', 200], ['/api/tara-intelligence/status', 200],
+    ['/api/tara-knowledge/status', 200], ['/api/exchange-calendar/status', 200],
+    ['/api/live-market/status', 200], ['/api/companies/status', 200]
   ];
   for (const [endpoint, expected] of endpointChecks) {
     try {
       const result = await request(`${baseUrl}${endpoint}`);
       const body = jsonBody(result.body);
       check(`runtime:${endpoint}`, result.status === expected && body?.success === true, `HTTP ${result.status}`);
-    } catch (err) {
-      check(`runtime:${endpoint}`, false, err.message);
-    }
+    } catch (err) { check(`runtime:${endpoint}`, false, err.message); }
   }
 
   const gatedChecks = [
@@ -127,19 +124,21 @@ async function main() {
     for (const key of ['MARKET_DATA_API_URL', 'MARKET_HISTORY_API_URL', 'NEWS_PROVIDER_API_URL']) {
       check(`provider:${key}`, !!process.env[key], process.env[key] ? 'configured' : 'required in strict external mode');
     }
+    for (const key of ['MARKET_DATA_LICENSE_STATUS','MARKET_DATA_DISPLAY_PERMISSION','MARKET_HISTORY_LICENSE_STATUS','MARKET_HISTORY_DISPLAY_PERMISSION','HISTORICAL_STORAGE_LICENSE_STATUS','HISTORICAL_STORAGE_DISPLAY_PERMISSION','HISTORICAL_STORAGE_REDISTRIBUTION_PERMISSION']) {
+      check(`strict:${key}`, !!String(process.env[key]||'').trim(), process.env[key] ? 'configured' : 'required in strict external mode');
+    }
   }
 
   const blockingFailures = checks.filter(c => c.blocking && !c.pass);
   const passed = checks.filter(c => c.pass).length;
   const failed = checks.filter(c => !c.pass).length;
-  const readiness = blockingFailures.length === 0 && !strictExternal && checks.some(c => c.name.startsWith('license:') && !c.pass)
-    ? 'READY_WITH_LICENSE_PENDING'
-    : blockingFailures.length === 0 ? 'READY' : 'NOT_READY';
+  const readiness = blockingFailures.length === 0 && strictExternal ? 'READY' : blockingFailures.length === 0 ? 'READY_WITH_EXTERNAL_GATES_PENDING' : 'NOT_READY';
 
   const report = {
-    product: 'Tara AI',
+    product: 'Market Analysis',
+    assistant: 'Tara AI',
     suite: 'Full Production Test & Readiness',
-    version: '1.0.0',
+    version: '1.1.0',
     timestamp: new Date().toISOString(),
     baseUrl,
     readiness,
@@ -152,7 +151,4 @@ async function main() {
   process.exitCode = blockingFailures.length ? 1 : 0;
 }
 
-main().catch(err => {
-  console.error('[Tara Production Readiness] Fatal:', err.message);
-  process.exitCode = 1;
-});
+main().catch(err => { console.error('[Tara Production Readiness] Fatal:', err.message); process.exitCode = 1; });
